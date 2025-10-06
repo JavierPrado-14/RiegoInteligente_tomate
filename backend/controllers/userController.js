@@ -10,7 +10,7 @@ const getUsers = async (req, res) => {
     await client.connect();
 
     const result = await client.query(
-      "SELECT id, nombre_usuario, correo, rol FROM AgroIrrigate.Usuarios ORDER BY id"
+      "SELECT id, nombre_usuario, correo, rol FROM agroirrigate.usuarios ORDER BY id"
     );
 
     res.json(result.rows);
@@ -30,7 +30,7 @@ const updateUser = async (req, res) => {
     const client = new Client(sqlConfig);
     await client.connect();
 
-    let query = "UPDATE AgroIrrigate.Usuarios SET";
+    let query = "UPDATE agroirrigate.usuarios SET";
     const values = [];
     let paramCount = 1;
 
@@ -89,7 +89,7 @@ const deleteUser = async (req, res) => {
     await client.connect();
 
     const result = await client.query(
-      "DELETE FROM AgroIrrigate.Usuarios WHERE id = $1 RETURNING id",
+      "DELETE FROM agroirrigate.usuarios WHERE id = $1 RETURNING id",
       [id]
     );
 

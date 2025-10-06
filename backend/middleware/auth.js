@@ -1,5 +1,22 @@
 const jwt = require("jsonwebtoken");
 
+// Autenticación básica: valida token y adjunta el usuario decodificado a req.user
+const auth = (req, res, next) => {
+  const token = req.header("Authorization")?.replace("Bearer ", "");
+  
+  if (!token) {
+    return res.status(401).json({ message: "Acceso denegado. Token requerido." });
+  }
+
+  try {
+    const decoded = jwt.verify(token, "secreta");
+    req.user = decoded;
+    next();
+  } catch (err) {
+    res.status(400).json({ message: "Token inválido" });
+  }
+};
+
 const requireAdmin = (req, res, next) => {
   const token = req.header("Authorization")?.replace("Bearer ", "");
   
@@ -19,4 +36,4 @@ const requireAdmin = (req, res, next) => {
   }
 };
 
-module.exports = { requireAdmin };
+module.exports = { auth, requireAdmin };

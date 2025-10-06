@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import './WaterSaturationMap.css';
 import cicloImage from '../assets/images/ciclo.jpg';
 
-const WaterSaturationMap = ({ onClose }) => {
+const WaterSaturationMap = ({ onClose, parcels = [] }) => {
   const [parcelData, setParcelData] = useState([]);
+  const [litrosMap, setLitrosMap] = useState({});
+  const API_BASE_URL = "http://localhost:4000/api";
 
   // Datos de ejemplo para las parcelas (solo 3 parcelas)
   const initialData = [
@@ -12,25 +14,63 @@ const WaterSaturationMap = ({ onClose }) => {
     { id: 3, name: "Parcela 3", saturation: 70, row: 0, col: 2 }
   ];
 
-  // Efecto para inicializar datos
+  // Inicializa datos usando parcelas reales del dashboard
   useEffect(() => {
-    setParcelData(initialData.map(parcel => ({
-      ...parcel,
-      saturation: Math.round(parcel.saturation)
-    })));
+    const fromDashboard = parcels && parcels.length > 0
+      ? parcels.map((p, idx) => ({ id: p.id, name: p.name, saturation: Math.round(p.humidity ?? 0), row: 0, col: idx }))
+      : initialData;
+    setParcelData(fromDashboard);
+    const prefill = {};
+    fromDashboard.forEach(p => { prefill[p.id] = calcularLitrosSegunHumedad(p.saturation); });
+    setLitrosMap(prefill);
+  }, [parcels]);
 
-    // Simular actualización de datos en tiempo real
-    const interval = setInterval(() => {
-      setParcelData(prevData => 
-        prevData.map(parcel => ({
-          ...parcel,
-          saturation: Math.min(100, Math.max(0, Math.round(parcel.saturation + (Math.random() * 10 - 5))))
-        }))
-      );
-    }, 5000);
+  const handleLitrosChange = (parcelId, litros) => {
+    setLitrosMap(prev => ({ ...prev, [parcelId]: litros }));
+  };
 
-    return () => clearInterval(interval);
-  }, []);
+  const registrarUsoAgua = async (parcel) => {
+    const litros = parseFloat(litrosMap[parcel.id] ?? calcularLitrosSegunHumedad(parcel.saturation));
+    if (!litros || litros <= 0) return;
+    try {
+      await fetch(`${API_BASE_URL}/agua/uso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          parcelaId: parcel.id,
+          parcelaNombre: parcel.name,
+          litros,
+          fecha: new Date().toISOString()
+        })
+      });
+    } catch (e) {
+      // noop
+    }
+  };
+
+  const calcularLitrosSegunHumedad = (saturation) => {
+    const deficit = Math.max(0, 70 - (Number.isFinite(saturation) ? saturation : 0));
+    return Math.min(50, Number((deficit * 0.5).toFixed(2)));
+  };
+
+  const registrarTodosAutomatico = async () => {
+    for (const parcel of parcelData) {
+      const litros = calcularLitrosSegunHumedad(parcel.saturation);
+      if (!litros || litros <= 0) continue; // omitir consumos de 0 L
+      try {
+        await fetch(`${API_BASE_URL}/agua/uso`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            parcelaId: parcel.id,
+            parcelaNombre: parcel.name,
+            litros,
+            fecha: new Date().toISOString()
+          })
+        });
+      } catch (_) {}
+    }
+  };
 
   // Función para obtener el color según la saturación
   const getColor = (saturation) => {
@@ -73,6 +113,20 @@ const WaterSaturationMap = ({ onClose }) => {
       >
         <div className="parcel-name">{parcel.name}</div>
         <div className="saturation-value">{saturation}%</div>
+        <div style={{marginTop: 6}}>
+          <input
+            type="number"
+            min="0"
+            step="0.1"
+            placeholder="Litros consumidos"
+            value={litrosMap[parcel.id] || ''}
+            onChange={(e) => handleLitrosChange(parcel.id, e.target.value)}
+            style={{ width: '100%', padding: '4px 6px' }}
+          />
+          <button onClick={() => registrarUsoAgua(parcel)} style={{ marginTop: 6 }}>
+            Registrar consumo
+          </button>
+        </div>
         <div className="status-text">{getStatusText(saturation)}</div>
       </div>
     );
@@ -96,6 +150,9 @@ const WaterSaturationMap = ({ onClose }) => {
             <div className="heatmap-row">
               {parcelData.map(parcel => renderCell(parcel))}
             </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <button onClick={registrarTodosAutomatico}>Registrar todos (automático)</button>
           </div>
 
           <div className="color-scale">

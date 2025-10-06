@@ -9,11 +9,15 @@ import AdminReportsModal from "../components/AdminReportsModal";
 import AdminMapDesignModal from "../components/AdminMapDesignModal";
 import AdminUsersModal from "../components/AdminUsersModal";
 import tomatoImage from '../assets/images/tomato.png';
+import ParcelMap from "../components/ParcelMap";
 
 const Dashboard = ({ updateAuthStatus }) => {
   const navigate = useNavigate();
-  const [humidity, setHumidity] = useState(0);
-  const [selectedParcel, setSelectedParcel] = useState("Parcela #1");
+
+  // El estado ahora se inicializa vacío. Se llenará con datos de la API.
+  const [parcels, setParcels] = useState([]);
+  const [selectedParcelId, setSelectedParcelId] = useState(null);
+  
   const [isWatering, setIsWatering] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaturationModalOpen, setIsSaturationModalOpen] = useState(false);
@@ -22,39 +26,101 @@ const Dashboard = ({ updateAuthStatus }) => {
   const [alertType, setAlertType] = useState("");
   const [userRole, setUserRole] = useState(1);
   const [adminModal, setAdminModal] = useState(null);
+  
   const detectionIntervalRef = useRef(null);
   const detectionTimeoutRef = useRef(null);
-  const humidityRef = useRef(0);
+  const latestHumidityRef = useRef(0);
+  const executedSchedulesRef = useRef(new Set());
 
-  // Obtener el rol al cargar el componente
+  const currentParcel = parcels.find(p => p.id === selectedParcelId);
+
+  // URL base del backend
+  const API_BASE_URL = "http://localhost:4000/api";
+
+  // --- FUNCIÓN PARA OBTENER LAS PARCELAS DESDE LA API ---
+  const fetchParcels = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        navigate('/', { replace: true });
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/parcels`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          // Si no hay parcelas, inicializar con datos por defecto
+          console.log("No se encontraron parcelas, usando datos por defecto");
+          const defaultParcels = [
+            { id: 1, name: "Parcela #1", humidity: 0, user_id: 1 },
+            { id: 2, name: "Parcela #2", humidity: 0, user_id: 1 },
+            { id: 3, name: "Parcela #3", humidity: 0, user_id: 1 }
+          ];
+          setParcels(defaultParcels);
+          if (defaultParcels.length > 0) {
+            setSelectedParcelId(defaultParcels[0].id);
+          }
+          return;
+        }
+        throw new Error('Error al obtener las parcelas. Código de estado: ' + response.status);
+      }
+
+      const data = await response.json();
+      setParcels(data);
+
+      // Si hay parcelas y ninguna está seleccionada, selecciona la primera por defecto
+      if (data.length > 0 && selectedParcelId === null) {
+        setSelectedParcelId(data[0].id);
+      } else if (data.length === 0) {
+        // Si no hay parcelas, nos aseguramos de que no haya ninguna seleccionada
+        setSelectedParcelId(null);
+      }
+
+    } catch (error) {
+      console.error("Error en fetchParcels:", error);
+      // En caso de error, usar datos por defecto
+      const defaultParcels = [
+        { id: 1, name: "Parcela #1", humidity: 0, user_id: 1 },
+        { id: 2, name: "Parcela #2", humidity: 0, user_id: 1 },
+        { id: 3, name: "Parcela #3", humidity: 0, user_id: 1 }
+      ];
+      setParcels(defaultParcels);
+      if (defaultParcels.length > 0) {
+        setSelectedParcelId(defaultParcels[0].id);
+      }
+      setAlertMessage("Usando datos de demostración. El servidor no está disponible.");
+      setAlertType("warning");
+    }
+  };
+
+  // Carga inicial de datos y rol de usuario
   useEffect(() => {
+    fetchParcels();
+
     const rol = localStorage.getItem("userRol");
     if (rol) {
       setUserRole(parseInt(rol));
     }
   }, []);
 
-  // Función para cerrar sesión
+  // Lógica para cerrar sesión
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("userRol");
-    
     if (updateAuthStatus) {
       updateAuthStatus(false);
     }
-    
     navigate("/", { replace: true });
   };
-
-  // Actualizar la ref cuando cambia la humedad
+  
+  // Limpieza de alertas y timers al cambiar de parcela
   useEffect(() => {
-    humidityRef.current = humidity;
-  }, [humidity]);
-
-  // Resetear valores al cambiar de parcela
-  useEffect(() => {
-    setHumidity(0);
-    humidityRef.current = 0;
     setAlertMessage("");
     setAlertType("");
     setIsHumidityDetecting(false);
@@ -65,31 +131,55 @@ const Dashboard = ({ updateAuthStatus }) => {
     if (detectionTimeoutRef.current) {
       clearTimeout(detectionTimeoutRef.current);
     }
-  }, [selectedParcel]);
+  }, [selectedParcelId]);
 
-  // Simulación de detección de humedad
+  // Simulación de detección y actualización de humedad (auto-stop configurable)
   useEffect(() => {
-    if (isHumidityDetecting) {
-      detectionIntervalRef.current = setInterval(() => {
-        const humedadParcela = Math.floor(Math.random() * 100);
-        setHumidity(humedadParcela);
-      }, 2000);
+    if (!isHumidityDetecting || !selectedParcelId) return;
 
-      detectionTimeoutRef.current = setTimeout(() => {
-        setIsHumidityDetecting(false);
+    const selectedAtStart = parcels.find(p => p.id === selectedParcelId);
+    const selectedName = selectedAtStart?.name || `Parcela ${selectedParcelId}`;
+
+    detectionIntervalRef.current = setInterval(() => {
+      const newHumidity = Math.floor(Math.random() * 100);
+      latestHumidityRef.current = newHumidity;
+      // Actualización optimista en el frontend para una respuesta visual rápida
+      setParcels(currentParcels =>
+        currentParcels.map(p =>
+          p.id === selectedParcelId ? { ...p, humidity: newHumidity } : p
+        )
+      );
+    }, 2000);
+
+    // Auto detención tras 10 segundos SIN reiniciarse
+    detectionTimeoutRef.current = setTimeout(() => {
+      setIsHumidityDetecting(false);
+      if (detectionIntervalRef.current) {
         clearInterval(detectionIntervalRef.current);
-        
-        const currentHumidity = humidityRef.current;
-
-        if (currentHumidity <= 35) {
-          setAlertMessage("Parcela deshidratada, regar ahora.");
-          setAlertType("warning");
-        } else {
-          setAlertMessage("Parcela hidratada, buen trabajo.");
-          setAlertType("success");
-        }
-      }, 20000);
-    }
+      }
+      const finalHumidity = latestHumidityRef.current;
+      if (finalHumidity <= 35) {
+        setAlertMessage("Parcela deshidratada, regar ahora.");
+        setAlertType("warning");
+      } else {
+        setAlertMessage("Parcela hidratada, buen trabajo.");
+        setAlertType("success");
+      }
+      // Registrar lectura al auto-detener
+      try {
+        const payload = {
+          lectura: finalHumidity,
+          fecha: new Date().toISOString(),
+          ubicacion: selectedName,
+          parcelaId: selectedParcelId
+        };
+        fetch(`${API_BASE_URL}/humedad/lecturas`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+      } catch (_) {}
+    }, 10000);
 
     return () => {
       if (detectionIntervalRef.current) {
@@ -99,74 +189,228 @@ const Dashboard = ({ updateAuthStatus }) => {
         clearTimeout(detectionTimeoutRef.current);
       }
     };
-  }, [isHumidityDetecting]);
+  }, [isHumidityDetecting, selectedParcelId]);
 
-  // Iniciar la detección de humedad
   const handleDetectHumidity = () => {
+    if (!currentParcel) return;
     setAlertMessage("");
     setAlertType("");
     setIsHumidityDetecting(true);
   };
 
-  // Detener la detección de humedad manualmente
   const handleStopHumidityDetection = () => {
     setIsHumidityDetecting(false);
-    
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-    }
-    if (detectionTimeoutRef.current) {
-      clearTimeout(detectionTimeoutRef.current);
-    }
-    
-    if (humidityRef.current <= 35) {
+    if (!currentParcel) return;
+    const finalHumidity = currentParcel.humidity;
+    if (finalHumidity <= 35) {
       setAlertMessage("Parcela deshidratada, regar ahora.");
       setAlertType("warning");
     } else {
       setAlertMessage("Parcela hidratada, buen trabajo.");
       setAlertType("success");
     }
+    // Registrar lectura en backend
+    try {
+      const payload = {
+        lectura: finalHumidity,
+        fecha: new Date().toISOString(),
+        ubicacion: currentParcel.name || `Parcela ${currentParcel.id}`,
+        parcelaId: currentParcel.id
+      };
+      fetch(`${API_BASE_URL}/humedad/lecturas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+    } catch (_) {
+      // Silenciar errores de red para no afectar la UX
+    }
   };
 
-  // Iniciar el riego
   const handleWaterPlants = () => {
+    if (!currentParcel) return;
     setIsWatering(true);
-    
     setTimeout(() => {
       setIsWatering(false);
+      const updatedHumidity = 90;
+      // Actualizamos la humedad localmente
+      setParcels(currentParcels =>
+        currentParcels.map(p =>
+          p.id === selectedParcelId ? { ...p, humidity: updatedHumidity } : p
+        )
+      );
       setAlertMessage("Parcela hidratada, buen trabajo.");
       setAlertType("success");
     }, 5000);
   };
 
-  // Abrir modal de programar riego
-  const openModal = () => {
-    setIsModalOpen(true);
+  // --- RIEGO PROGRAMADO EN TIEMPO REAL ---
+  const calcularLitrosSegunHumedad = (humidity) => {
+    const deficit = Math.max(0, 70 - (Number.isFinite(humidity) ? humidity : 0));
+    return Math.min(50, Number((deficit * 0.5).toFixed(2)));
   };
 
-  // Cerrar modal de programar riego
-  const closeModal = () => {
-    setIsModalOpen(false);
+  const calcularDuracionSegundos = (humidity) => {
+    const deficit = Math.max(0, 70 - (Number.isFinite(humidity) ? humidity : 0));
+    return Math.max(10, Math.min(300, Math.floor(deficit * 3))); // 10s a 5min
   };
 
-  // Abrir modal de saturación de agua
-  const openSaturationModal = () => {
-    setIsSaturationModalOpen(true);
+  const parseFechaHora = (fechaStr, horaStr) => {
+    const d = (fechaStr || '').slice(0,10);
+    const h = (horaStr || '00:00:00');
+    // Interpretar como hora local
+    return new Date(`${d}T${h}`);
   };
 
-  // Cerrar modal de saturación de agua
-  const closeSaturationModal = () => {
-    setIsSaturationModalOpen(false);
+  const triggerScheduledWatering = (parcelName, scheduleId, humidity) => {
+    const parcel = parcels.find(p => p.name === parcelName);
+    if (!parcel) return;
+    if (executedSchedulesRef.current.has(scheduleId)) return;
+    executedSchedulesRef.current.add(scheduleId);
+
+    const durationSec = calcularDuracionSegundos(humidity ?? parcel.humidity ?? 0);
+    const litros = calcularLitrosSegunHumedad(humidity ?? parcel.humidity ?? 0);
+
+    setSelectedParcelId(parcel.id);
+    setIsWatering(true);
+    setTimeout(() => {
+      setIsWatering(false);
+      const increased = Math.min(100, Math.max(parcel.humidity ?? 0, 70));
+      setParcels(curr => curr.map(p => p.id === parcel.id ? { ...p, humidity: increased } : p));
+      setAlertMessage(`Riego programado completado en ${parcel.name}.`);
+      setAlertType("success");
+    }, durationSec * 1000);
+
+    // Registrar consumo de agua
+    try {
+      fetch(`${API_BASE_URL}/agua/uso`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          parcelaId: parcel.id,
+          parcelaNombre: parcel.name,
+          litros,
+          fecha: new Date().toISOString()
+        })
+      }).catch(() => {});
+    } catch (_) {}
   };
 
-  // Funciones para modales de administración
-  const openAdminModal = (modalType) => {
-    setAdminModal(modalType);
+  useEffect(() => {
+    // Chequea cada 10s si hay riegos que deban iniciar ahora
+    const interval = setInterval(async () => {
+      try {
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, '0');
+        const d = String(today.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${d}`;
+        const res = await fetch(`${API_BASE_URL}/riego/historial?fechaInicio=${dateStr}&fechaFin=${dateStr}`);
+        if (!res.ok) return;
+        const rows = await res.json();
+        const now = new Date();
+        rows.forEach(r => {
+          const start = parseFechaHora(r.fecha, r.hora_inicio);
+          if (!isNaN(start.getTime())) {
+            const diffMs = now.getTime() - start.getTime();
+            if (diffMs >= 0 && diffMs < 15000) { // ventana de 15s
+              triggerScheduledWatering(r.parcela, r.id || `${r.fecha}-${r.hora_inicio}-${r.parcela}`, undefined);
+            }
+          }
+        });
+      } catch (_) {}
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [API_BASE_URL, parcels]);
+  
+  // --- FUNCIÓN PARA AGREGAR PARCELA ---
+  const handleAddParcel = async () => {
+    const parcelName = prompt("Introduce el nombre de la nueva parcela:");
+    if (parcelName) {
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(`${API_BASE_URL}/parcels`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ name: parcelName }),
+        });
+
+        if (!response.ok) {
+          throw new Error('No se pudo crear la parcela.');
+        }
+
+        const newParcel = await response.json();
+        setParcels(currentParcels => [...currentParcels, newParcel]);
+        setSelectedParcelId(newParcel.id);
+        setAlertMessage("Parcela agregada correctamente.");
+        setAlertType("success");
+
+      } catch (error) {
+        console.error("Error al agregar parcela:", error);
+        // En caso de error, agregar parcela localmente
+        const newParcel = {
+          id: Date.now(), // ID temporal
+          name: parcelName,
+          humidity: 0,
+          user_id: 1
+        };
+        setParcels(currentParcels => [...currentParcels, newParcel]);
+        setSelectedParcelId(newParcel.id);
+        setAlertMessage("Parcela agregada localmente (modo demostración).");
+        setAlertType("warning");
+      }
+    }
+  };
+  
+  // --- FUNCIÓN PARA ELIMINAR PARCELA ---
+  const handleDeleteParcel = async () => {
+    if (!currentParcel) {
+      alert("Por favor, selecciona una parcela para eliminar.");
+      return;
+    }
+    
+    const isConfirmed = window.confirm(`¿Estás seguro de que deseas eliminar la parcela "${currentParcel.name}"?`);
+    if (isConfirmed) {
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(`${API_BASE_URL}/parcels/${selectedParcelId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('No se pudo eliminar la parcela.');
+        }
+        
+        const newParcels = parcels.filter(p => p.id !== selectedParcelId);
+        setParcels(newParcels);
+        setSelectedParcelId(newParcels.length > 0 ? newParcels[0].id : null);
+        setAlertMessage("Parcela eliminada correctamente.");
+        setAlertType("success");
+      
+      } catch (error) {
+        console.error("Error al eliminar parcela:", error);
+        // En caso de error, eliminar localmente
+        const newParcels = parcels.filter(p => p.id !== selectedParcelId);
+        setParcels(newParcels);
+        setSelectedParcelId(newParcels.length > 0 ? newParcels[0].id : null);
+        setAlertMessage("Parcela eliminada localmente (modo demostración).");
+        setAlertType("warning");
+      }
+    }
   };
 
-  const closeAdminModal = () => {
-    setAdminModal(null);
-  };
+  const openModal = () => setIsModalOpen(true);
+  const closeModal = () => setIsModalOpen(false);
+  const openSaturationModal = () => setIsSaturationModalOpen(true);
+  const closeSaturationModal = () => setIsSaturationModalOpen(false);
+  const openAdminModal = (modalType) => setAdminModal(modalType);
+  const closeAdminModal = () => setAdminModal(null);
 
   return (
     <div className="dashboard-container">
@@ -180,25 +424,18 @@ const Dashboard = ({ updateAuthStatus }) => {
           </button>
 
           <h1>Aplicación de Riego</h1>
-
-          <div className="parcel-selector">
-            <label>Seleccionar Parcela:</label>
-            <select 
-              value={selectedParcel} 
-              onChange={(e) => setSelectedParcel(e.target.value)} 
-              className="parcel-select"
-            >
-              <option value="Parcela #1">Parcela #1</option>
-              <option value="Parcela #2">Parcela #2</option>
-              <option value="Parcela #3">Parcela #3</option>
-            </select>
-          </div>
+          
+          <ParcelMap
+            parcels={parcels}
+            selectedParcelId={selectedParcelId}
+            onParcelSelect={setSelectedParcelId}
+          />
 
           <div className="humidity-container">
-            <h2>Humedad del suelo en {selectedParcel}: {humidity}%</h2>
+            <h2>Humedad del suelo en {currentParcel?.name || 'N/A'}: {currentParcel?.humidity || 0}%</h2>
             {isHumidityDetecting && (
               <div className="detection-info">
-                <p>Detectando humedad... (20 segundos)</p>
+                <p>Detectando humedad... (10 segundos)</p>
               </div>
             )}
           </div>
@@ -213,7 +450,7 @@ const Dashboard = ({ updateAuthStatus }) => {
             <button 
               className="action-button transparent-button"
               onClick={isHumidityDetecting ? handleStopHumidityDetection : handleDetectHumidity}
-              disabled={isWatering}
+              disabled={isWatering || !currentParcel}
             >
               {isHumidityDetecting ? 'Detener Detección' : 'Detectar Humedad Del Suelo'}
             </button>
@@ -221,7 +458,7 @@ const Dashboard = ({ updateAuthStatus }) => {
             <button 
               className={`action-button transparent-button ${isWatering ? 'watering' : ''}`}
               onClick={handleWaterPlants}
-              disabled={isWatering || isHumidityDetecting}
+              disabled={isWatering || isHumidityDetecting || !currentParcel}
             >
               {isWatering ? 'Regando...' : 'Regar según humedad'}
             </button>
@@ -229,7 +466,7 @@ const Dashboard = ({ updateAuthStatus }) => {
             <button
               className="action-button transparent-button"
               onClick={openModal}
-              disabled={isWatering || isHumidityDetecting}
+              disabled={isWatering || isHumidityDetecting || !currentParcel}
             >
               <i className="fa fa-tint"></i> Programar Riego
             </button>
@@ -248,13 +485,13 @@ const Dashboard = ({ updateAuthStatus }) => {
               <div className="admin-buttons">
                 <button 
                   className="action-button transparent-button"
-                  onClick={() => openAdminModal('addParcel')}
+                  onClick={handleAddParcel}
                 >
                   <i className="fa fa-plus"></i> Agregar Parcela
                 </button>
                 <button 
                   className="action-button transparent-button"
-                  onClick={() => openAdminModal('deleteParcel')}
+                  onClick={handleDeleteParcel}
                 >
                   <i className="fa fa-trash"></i> Eliminar Parcela
                 </button>
@@ -301,29 +538,13 @@ const Dashboard = ({ updateAuthStatus }) => {
               </button>
             </div>
             <div className="modal-content">
-              <WaterSaturationMap onClose={closeSaturationModal} />
+              <WaterSaturationMap onClose={closeSaturationModal} parcels={parcels} />
             </div>
           </div>
         </div>
       )}
 
       {/* Modales de Administración */}
-      {adminModal === 'addParcel' && (
-        <AdminParcelModal 
-          isOpen={true} 
-          closeModal={closeAdminModal} 
-          action="add"
-        />
-      )}
-      
-      {adminModal === 'deleteParcel' && (
-        <AdminParcelModal 
-          isOpen={true} 
-          closeModal={closeAdminModal} 
-          action="delete"
-        />
-      )}
-      
       {adminModal === 'reports' && (
         <AdminReportsModal 
           isOpen={true} 

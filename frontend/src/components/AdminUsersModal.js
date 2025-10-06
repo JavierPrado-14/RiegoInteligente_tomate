@@ -1,15 +1,42 @@
 // frontend/src/components/AdminUsersModal.js
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './AdminModals.css';
 
 const AdminUsersModal = ({ isOpen, closeModal }) => {
-  const [users, setUsers] = useState([
-    { id: 1, username: 'usuario1', email: 'usuario1@example.com', role: 1 },
-    { id: 2, username: 'admin1', email: 'admin1@example.com', role: 2 }
-  ]);
+  const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState({ username: '', email: '', role: 1 });
+
+  const API_BASE_URL = "http://localhost:4000/api";
+
+  const fetchUsers = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${API_BASE_URL}/users`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Error al listar usuarios');
+      const data = await res.json();
+      // Mapear campos a UI esperada
+      const mapped = data.map(u => ({
+        id: u.id,
+        username: u.nombre_usuario,
+        email: u.correo,
+        role: u.rol
+      }));
+      setUsers(mapped);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchUsers();
+    }
+  }, [isOpen]);
 
   const handleEditUser = (user) => {
     setSelectedUser(user);
@@ -17,19 +44,44 @@ const AdminUsersModal = ({ isOpen, closeModal }) => {
     setEditMode(true);
   };
 
-  const handleSaveUser = (e) => {
+  const handleSaveUser = async (e) => {
     e.preventDefault();
-    // Lógica para guardar los cambios del usuario
-    console.log('Guardando usuario:', formData);
-    // Aquí se haría la llamada al backend para actualizar el usuario
-    setEditMode(false);
-    setSelectedUser(null);
+    if (!selectedUser) return;
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${API_BASE_URL}/users/${selectedUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          nombre_usuario: formData.username,
+          correo: formData.email,
+          rol: formData.role
+        })
+      });
+      if (!res.ok) throw new Error('No se pudo actualizar el usuario');
+      await fetchUsers();
+      setEditMode(false);
+      setSelectedUser(null);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleDeleteUser = (userId) => {
-    // Lógica para eliminar usuario
-    console.log('Eliminando usuario:', userId);
-    // Aquí se haría la llamada al backend para eliminar el usuario
+  const handleDeleteUser = async (userId) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${API_BASE_URL}/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('No se pudo eliminar el usuario');
+      await fetchUsers();
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   if (!isOpen) return null;

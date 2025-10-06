@@ -10,4 +10,4 @@ router.get("/", requireAdmin, getUsers);
 router.put("/:id", requireAdmin, updateUser);
 router.delete("/:id", requireAdmin, deleteUser);
 
-module.exports = router;
+module.exports = router;    

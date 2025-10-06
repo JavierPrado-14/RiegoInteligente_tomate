@@ -29,6 +29,7 @@
   background-color: rgba(0, 0, 0, 0.4);
   padding: 20px;
   box-sizing: border-box;
+  overflow-y: auto; /* Añadido para permitir scroll si el contenido es muy alto */
 }
 
 /* Botón de cerrar sesión */
@@ -131,22 +132,14 @@ h1 {
   border-left: 5px solid #27ae60;
 }
 
-/* Animación de parpadeo para alertas de advertencia */
-.blinking {
-  animation: blink-animation 1s infinite;
-}
-
+.blinking { animation: blink-animation 1s infinite; }
 @keyframes blink-animation {
   0% { opacity: 1; }
   50% { opacity: 0.5; }
   100% { opacity: 1; }
 }
 
-/* Animación de sorpresa para alertas de éxito */
-.surprise {
-  animation: surprise-animation 0.5s;
-}
-
+.surprise { animation: surprise-animation 0.5s; }
 @keyframes surprise-animation {
   0% { transform: scale(0.8); opacity: 0; }
   50% { transform: scale(1.1); }
@@ -159,6 +152,9 @@ h1 {
   margin-top: 20px;
   flex-wrap: wrap;
   justify-content: center;
+  /* --- CAMBIO: Límite de ancho para evitar que se estire --- */
+  width: 100%;
+  max-width: 1100px;
 }
 
 .action-button {
@@ -185,10 +181,7 @@ h1 {
   transform: translateY(-2px);
 }
 
-.transparent-button:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
+.transparent-button:active:not(:disabled) { transform: translateY(1px); }
 .transparent-button:disabled {
   background-color: rgba(149, 165, 166, 0.7);
   cursor: not-allowed;
@@ -196,10 +189,7 @@ h1 {
   opacity: 0.6;
 }
 
-.transparent-button.watering {
-  animation: watering-pulse 1.5s infinite;
-}
-
+.transparent-button.watering { animation: watering-pulse 1.5s infinite; }
 @keyframes watering-pulse {
   0% { background-color: rgba(0, 0, 0, 0.5); }
   50% { background-color: rgba(0, 0, 0, 0.7); }
@@ -238,6 +228,31 @@ h1 {
   margin: 0;
 }
 
+/* --- AÑADIDO: Estilos para la sección de administración --- */
+.admin-menu {
+  width: 100%;
+  max-width: 1100px;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.admin-menu h3 {
+  color: #FFFFFF; /* Cambio de color solicitado */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+  margin-bottom: 20px;
+  font-size: 1.3em;
+}
+
+.admin-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+/* --- FIN DE ESTILOS AÑADIDOS --- */
+
+
 /* Modal styles */
 .modal-overlay {
   position: fixed;
@@ -265,7 +280,7 @@ h1 {
 }
 
 .modal-container h2 {
-  color: 333;
+  color: #333; /* Corregido: Faltaba el # */
   margin-bottom: 20px;
 }
 
@@ -286,6 +301,8 @@ h1 {
 @media (max-width: 768px) {
   .content-overlay {
     padding: 10px;
+    justify-content: flex-start; /* Alinea el contenido arriba en móviles */
+    padding-top: 5rem;
   }
   
   h1 {
@@ -301,7 +318,7 @@ h1 {
     font-size: 1.8em;
   }
   
-  .buttons-container {
+  .buttons-container, .admin-buttons { /* Aplicamos también a admin-buttons */
     flex-direction: column;
     gap: 15px;
     width: 100%;
@@ -323,7 +340,6 @@ h1 {
     width: 90%;
   }
   
-  /* Asegurar que el botón sea visible en móviles */
   .logout-button {
     top: 10px;
     right: 10px;
@@ -332,7 +348,6 @@ h1 {
   }
 }
 
-/* Estilos para el icono de programar riego */
-.fa-tint {
+.fa-tint, .fa {
   margin-right: 8px;
 }

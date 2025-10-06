@@ -19,5 +19,8 @@
     "pg": "^8.16.3",
     "react-heatmap-grid": "^0.9.1",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
   }
 }
