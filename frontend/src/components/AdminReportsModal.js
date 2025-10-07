@@ -7,6 +7,7 @@ const AdminReportsModal = ({ isOpen, closeModal }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [data, setData] = useState([]);
+  const [consumoData, setConsumoData] = useState([]);
   const chartRef = useRef(null);
   const API_BASE_URL = "http://localhost:4000/api";
 
@@ -15,55 +16,111 @@ const AdminReportsModal = ({ isOpen, closeModal }) => {
       const params = new URLSearchParams();
       if (startDate) params.append('fechaInicio', startDate);
       if (endDate) params.append('fechaFin', endDate);
-      const res = await fetch(`${API_BASE_URL}/riego/historial?${params.toString()}`);
-      if (!res.ok) throw new Error('Error al obtener historial');
-      const rows = await res.json();
-      setData(rows);
+      
+      console.log('Fetching data for:', reportType, 'with params:', params.toString());
+      
+      if (reportType === 'consumo') {
+        const res = await fetch(`${API_BASE_URL}/agua/consumo?${params.toString()}`);
+        if (!res.ok) throw new Error('Error al obtener consumo');
+        const rows = await res.json();
+        console.log('Consumo data received:', rows);
+        setConsumoData(rows);
+        setData([]); // Limpiar datos de riegos
+      } else {
+        const res = await fetch(`${API_BASE_URL}/riego/historial?${params.toString()}`);
+        if (!res.ok) throw new Error('Error al obtener historial');
+        const rows = await res.json();
+        console.log('Riego data received:', rows);
+        setData(rows);
+        setConsumoData([]); // Limpiar datos de consumo
+      }
     } catch (e) {
-      console.error(e);
+      console.error('Error in fetchData:', e);
       setData([]);
+      setConsumoData([]);
     }
   };
 
   useEffect(() => {
-    if (isOpen && reportType === 'riegos') {
+    if (isOpen && (reportType === 'riegos' || reportType === 'consumo')) {
       fetchData();
     }
   }, [isOpen, reportType]);
 
   const handleGenerateReport = async (e) => {
     e.preventDefault();
+    console.log('Generando reporte:', { reportType, startDate, endDate });
     await fetchData();
   };
 
   const chartSeries = useMemo(() => {
-    // Agrupar por fecha y contar riegos
-    const map = new Map();
-    const parcelaCount = new Map();
-    data.forEach(r => {
-      let key = '';
-      if (r.fecha) {
-        try {
-          key = new Date(r.fecha).toISOString().slice(0,10);
-        } catch (_) {
-          key = (r.fecha + '').slice(0,10);
+    if (reportType === 'consumo') {
+      // Análisis de consumo de agua
+      const map = new Map();
+      const parcelaLitros = new Map();
+      const horaConsumo = new Map();
+      
+      console.log('Processing consumo data:', consumoData);
+      consumoData.forEach(r => {
+        let key = '';
+        if (r.fecha) {
+          try {
+            key = new Date(r.fecha).toISOString().slice(0,10);
+          } catch (_) {
+            key = (r.fecha + '').slice(0,10);
+          }
         }
-      }
-      map.set(key, (map.get(key) || 0) + 1);
-      if (r.parcela) parcelaCount.set(r.parcela, (parcelaCount.get(r.parcela) || 0) + 1);
-    });
-    const labels = Array.from(map.keys()).sort();
-    const values = labels.map(l => map.get(l));
-    // Cálculos resumen
-    const total = data.length;
-    const promedio = labels.length ? (total / labels.length) : 0;
-    let pico = 0;
-    values.forEach(v => { if (v > pico) pico = v; });
-    let topParcela = '';
-    let maxCnt = 0;
-    parcelaCount.forEach((cnt, p) => { if (cnt > maxCnt) { maxCnt = cnt; topParcela = p; } });
-    return { labels, values, total, promedio, pico, topParcela };
-  }, [data]);
+        const litros = parseFloat(r.litros || 0);
+        map.set(key, (map.get(key) || 0) + litros);
+        if (r.parcela_nombre) {
+          parcelaLitros.set(r.parcela_nombre, (parcelaLitros.get(r.parcela_nombre) || 0) + litros);
+        }
+        if (r.hora !== null) {
+          horaConsumo.set(r.hora, (horaConsumo.get(r.hora) || 0) + litros);
+        }
+      });
+      
+      const labels = Array.from(map.keys()).sort();
+      const values = labels.map(l => map.get(l));
+      const total = consumoData.reduce((sum, r) => sum + parseFloat(r.litros || 0), 0);
+      const promedio = labels.length ? (total / labels.length) : 0;
+      let pico = 0;
+      values.forEach(v => { if (v > pico) pico = v; });
+      let topParcela = '';
+      let maxLitros = 0;
+      parcelaLitros.forEach((litros, p) => { if (litros > maxLitros) { maxLitros = litros; topParcela = p; } });
+      
+      console.log('Consumo analysis result:', { labels, values, total, promedio, pico, topParcela });
+      
+      return { labels, values, total, promedio, pico, topParcela, tipo: 'consumo' };
+    } else {
+      // Análisis de riegos programados
+      const map = new Map();
+      const parcelaCount = new Map();
+      data.forEach(r => {
+        let key = '';
+        if (r.fecha) {
+          try {
+            key = new Date(r.fecha).toISOString().slice(0,10);
+          } catch (_) {
+            key = (r.fecha + '').slice(0,10);
+          }
+        }
+        map.set(key, (map.get(key) || 0) + 1);
+        if (r.parcela) parcelaCount.set(r.parcela, (parcelaCount.get(r.parcela) || 0) + 1);
+      });
+      const labels = Array.from(map.keys()).sort();
+      const values = labels.map(l => map.get(l));
+      const total = data.length;
+      const promedio = labels.length ? (total / labels.length) : 0;
+      let pico = 0;
+      values.forEach(v => { if (v > pico) pico = v; });
+      let topParcela = '';
+      let maxCnt = 0;
+      parcelaCount.forEach((cnt, p) => { if (cnt > maxCnt) { maxCnt = cnt; topParcela = p; } });
+      return { labels, values, total, promedio, pico, topParcela, tipo: 'riegos' };
+    }
+  }, [data, consumoData, reportType]);
 
   const downloadPDF = () => {
     // Estrategia simple sin dependencias: abrir ventana con contenido imprimible
@@ -109,7 +166,8 @@ const AdminReportsModal = ({ isOpen, closeModal }) => {
 
   const Chart = () => {
     const { labels, values } = chartSeries;
-    if (!labels.length) return <p>No hay datos para el rango seleccionado.</p>;
+    console.log('Chart rendering with:', { labels, values, reportType });
+    if (!labels || !labels.length) return <p>No hay datos para el rango seleccionado.</p>;
 
     // Construir SVG responsive
     const width = 800;
@@ -145,7 +203,14 @@ const AdminReportsModal = ({ isOpen, closeModal }) => {
           {/* Etiquetas Y simples: 0 y max */}
           <text x={padding - 10} y={height - padding} fontSize="10" textAnchor="end" fill="#555">0</text>
           <text x={padding - 10} y={padding} fontSize="10" textAnchor="end" fill="#555">{maxY}</text>
-          <text x={width/2} y={20} fontSize="14" textAnchor="middle" fill="#2c3e50">Riegos programados por día</text>
+          <text x={width/2} y={20} fontSize="14" textAnchor="middle" fill="#2c3e50">
+            {reportType === 'consumo' ? 'Consumo de agua por día (litros)' : 'Riegos programados por día'}
+          </text>
+          {reportType === 'consumo' && labels.length === 1 && (
+            <text x={width/2} y={height/2 + 20} fontSize="12" textAnchor="middle" fill="#666">
+              Total: {values[0].toFixed(2)} litros en {labels[0]}
+            </text>
+          )}
         </svg>
       </div>
     );
@@ -208,30 +273,83 @@ const AdminReportsModal = ({ isOpen, closeModal }) => {
           </form>
           {/* Tarjetas resumen */}
           <div className="report-summary">
-            <div className="report-card">
-              <p className="title">Total riegos</p>
-              <p className="value">{chartSeries.total}</p>
-            </div>
-            <div className="report-card">
-              <p className="title">Promedio por día</p>
-              <p className="value">{chartSeries.promedio.toFixed(2)}</p>
-            </div>
-            <div className="report-card">
-              <p className="title">Día con más riegos</p>
-              <p className="value">{chartSeries.pico}</p>
-            </div>
-            <div className="report-card">
-              <p className="title">Parcela más regada</p>
-              <p className="value">{chartSeries.topParcela || '—'}</p>
-            </div>
+            {reportType === 'consumo' ? (
+              <>
+                <div className="report-card">
+                  <p className="title">Total litros</p>
+                  <p className="value">{(chartSeries.total || 0).toFixed(2)} L</p>
+                </div>
+                <div className="report-card">
+                  <p className="title">Promedio por día</p>
+                  <p className="value">{(chartSeries.promedio || 0).toFixed(2)} L</p>
+                </div>
+                <div className="report-card">
+                  <p className="title">Día con más consumo</p>
+                  <p className="value">{(chartSeries.pico || 0).toFixed(2)} L</p>
+                </div>
+                <div className="report-card">
+                  <p className="title">Parcela más consumidora</p>
+                  <p className="value">{chartSeries.topParcela || '—'}</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="report-card">
+                  <p className="title">Total riegos</p>
+                  <p className="value">{chartSeries.total || 0}</p>
+                </div>
+                <div className="report-card">
+                  <p className="title">Promedio por día</p>
+                  <p className="value">{(chartSeries.promedio || 0).toFixed(2)}</p>
+                </div>
+                <div className="report-card">
+                  <p className="title">Día con más riegos</p>
+                  <p className="value">{chartSeries.pico || 0}</p>
+                </div>
+                <div className="report-card">
+                  <p className="title">Parcela más regada</p>
+                  <p className="value">{chartSeries.topParcela || '—'}</p>
+                </div>
+              </>
+            )}
           </div>
           {/* Leyenda */}
           <div className="chart-legend">
-            <span className="legend-item"><span className="legend-dot"></span> Riegos programados</span>
+            <span className="legend-item">
+              <span className="legend-dot"></span> 
+              {reportType === 'consumo' ? 'Consumo de agua (litros)' : 'Riegos programados'}
+            </span>
           </div>
           <div style={{marginTop: 20}}>
             <Chart />
           </div>
+          
+          {/* Tabla de detalles para consumo */}
+          {reportType === 'consumo' && consumoData.length > 0 && (
+            <div style={{marginTop: 20}}>
+              <h4>Detalle por Parcela</h4>
+              <table style={{width: '100%', borderCollapse: 'collapse', marginTop: 10}}>
+                <thead>
+                  <tr style={{backgroundColor: '#f5f5f5'}}>
+                    <th style={{border: '1px solid #ddd', padding: 8}}>Parcela</th>
+                    <th style={{border: '1px solid #ddd', padding: 8}}>Litros</th>
+                    <th style={{border: '1px solid #ddd', padding: 8}}>Fecha</th>
+                    <th style={{border: '1px solid #ddd', padding: 8}}>Hora</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {consumoData.map((row, index) => (
+                    <tr key={index}>
+                      <td style={{border: '1px solid #ddd', padding: 8}}>{row.parcela_nombre}</td>
+                      <td style={{border: '1px solid #ddd', padding: 8}}>{parseFloat(row.litros).toFixed(2)} L</td>
+                      <td style={{border: '1px solid #ddd', padding: 8}}>{new Date(row.fecha).toLocaleDateString()}</td>
+                      <td style={{border: '1px solid #ddd', padding: 8}}>{new Date(row.fecha).toLocaleTimeString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

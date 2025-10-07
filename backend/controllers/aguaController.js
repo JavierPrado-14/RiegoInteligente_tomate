@@ -41,6 +41,46 @@ const registrarUsoAgua = async (req, res) => {
   }
 };
 
-module.exports = { registrarUsoAgua };
+const getConsumoAgua = async (req, res) => {
+  const { fechaInicio, fechaFin } = req.query;
+
+  try {
+    const client = new Client(sqlConfig);
+    await client.connect();
+
+    const filtros = [];
+    const valores = [];
+    let idx = 1;
+
+    if (fechaInicio) {
+      filtros.push(`DATE(fecha) >= $${idx++}::date`);
+      valores.push(fechaInicio);
+    }
+    if (fechaFin) {
+      filtros.push(`DATE(fecha) <= $${idx++}::date`);
+      valores.push(fechaFin);
+    }
+
+    const where = filtros.length ? `WHERE ${filtros.join(' AND ')}` : '';
+    const query = `
+      SELECT 
+        id, parcela_id, parcela_nombre, litros, fecha,
+        DATE(fecha) as fecha_dia,
+        EXTRACT(HOUR FROM fecha) as hora
+      FROM agroirrigate.uso_agua
+      ${where}
+      ORDER BY fecha ASC
+    `;
+
+    const result = await client.query(query, valores);
+    res.json(result.rows);
+    await client.end();
+  } catch (err) {
+    console.error('Error al obtener consumo de agua:', err);
+    res.status(500).json({ message: 'Error al obtener consumo de agua', error: err.message });
+  }
+};
+
+module.exports = { registrarUsoAgua, getConsumoAgua };
 
 

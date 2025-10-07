@@ -6,7 +6,8 @@ import ModalProgramarRiego from "../components/ModalProgramarRiego";
 import WaterSaturationMap from "../components/WaterSaturationMap";
 import AdminParcelModal from "../components/AdminParcelModal";
 import AdminReportsModal from "../components/AdminReportsModal";
-import AdminMapDesignModal from "../components/AdminMapDesignModal";
+import MapDesigner from "../components/MapDesigner";
+import MapViewer from "../components/MapViewer";
 import AdminUsersModal from "../components/AdminUsersModal";
 import tomatoImage from '../assets/images/tomato.png';
 import ParcelMap from "../components/ParcelMap";
@@ -26,6 +27,8 @@ const Dashboard = ({ updateAuthStatus }) => {
   const [alertType, setAlertType] = useState("");
   const [userRole, setUserRole] = useState(1);
   const [adminModal, setAdminModal] = useState(null);
+  const [showMapDesigner, setShowMapDesigner] = useState(false);
+  const [showMapViewer, setShowMapViewer] = useState(false);
   
   const detectionIntervalRef = useRef(null);
   const detectionTimeoutRef = useRef(null);
@@ -262,13 +265,18 @@ const Dashboard = ({ updateAuthStatus }) => {
     return new Date(`${d}T${h}`);
   };
 
-  const triggerScheduledWatering = (parcelName, scheduleId, humidity) => {
+  const triggerScheduledWatering = (parcelName, scheduleId, humidity, horaFin) => {
     const parcel = parcels.find(p => p.name === parcelName);
     if (!parcel) return;
     if (executedSchedulesRef.current.has(scheduleId)) return;
     executedSchedulesRef.current.add(scheduleId);
 
-    const durationSec = calcularDuracionSegundos(humidity ?? parcel.humidity ?? 0);
+    // Calcular duración basada en hora fin programada
+    const now = new Date();
+    const endTime = parseFechaHora(now.toISOString().slice(0,10), horaFin);
+    const durationMs = endTime.getTime() - now.getTime();
+    const durationSec = Math.max(10, Math.min(300, Math.floor(durationMs / 1000)));
+    
     const litros = calcularLitrosSegunHumedad(humidity ?? parcel.humidity ?? 0);
 
     setSelectedParcelId(parcel.id);
@@ -311,10 +319,20 @@ const Dashboard = ({ updateAuthStatus }) => {
         const now = new Date();
         rows.forEach(r => {
           const start = parseFechaHora(r.fecha, r.hora_inicio);
-          if (!isNaN(start.getTime())) {
+          const end = parseFechaHora(r.fecha, r.hora_fin);
+          if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
             const diffMs = now.getTime() - start.getTime();
+            const endDiffMs = now.getTime() - end.getTime();
+            
+            // Iniciar riego si estamos en la ventana de inicio
             if (diffMs >= 0 && diffMs < 15000) { // ventana de 15s
-              triggerScheduledWatering(r.parcela, r.id || `${r.fecha}-${r.hora_inicio}-${r.parcela}`, undefined);
+              triggerScheduledWatering(r.parcela, r.id || `${r.fecha}-${r.hora_inicio}-${r.parcela}`, undefined, r.hora_fin);
+            }
+            // Detener riego si ya pasó la hora fin
+            else if (endDiffMs > 0 && endDiffMs < 30000) { // ventana de 30s después de fin
+              setIsWatering(false);
+              setAlertMessage(`Riego programado finalizado en ${r.parcela}.`);
+              setAlertType("info");
             }
           }
         });
@@ -503,9 +521,15 @@ const Dashboard = ({ updateAuthStatus }) => {
                 </button>
                 <button 
                   className="action-button transparent-button"
-                  onClick={() => openAdminModal('mapDesign')}
+                  onClick={() => setShowMapDesigner(true)}
                 >
                   <i className="fa fa-map"></i> Diseñar Mapa
+                </button>
+                <button 
+                  className="action-button transparent-button"
+                  onClick={() => setShowMapViewer(true)}
+                >
+                  <i className="fa fa-eye"></i> Ver Mapa de Parcelas
                 </button>
                 <button 
                   className="action-button transparent-button"
@@ -552,10 +576,17 @@ const Dashboard = ({ updateAuthStatus }) => {
         />
       )}
       
-      {adminModal === 'mapDesign' && (
-        <AdminMapDesignModal 
-          isOpen={true} 
-          closeModal={closeAdminModal}
+      {/* Componentes de Mapas */}
+      {showMapDesigner && (
+        <MapDesigner 
+          onClose={() => setShowMapDesigner(false)}
+          parcels={parcels}
+        />
+      )}
+      
+      {showMapViewer && (
+        <MapViewer 
+          onClose={() => setShowMapViewer(false)}
         />
       )}
       
