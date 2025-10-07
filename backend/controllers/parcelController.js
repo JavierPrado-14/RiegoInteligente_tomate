@@ -22,12 +22,35 @@ const parcelController = {
       // Asegurar tabla
       await client.query(ensureParcelsTableSQL);
       
+      // Mostrar todas las parcelas para que usuarios normales vean las del administrador
       const result = await client.query(
-        'SELECT * FROM agroirrigate.parcels WHERE user_id = $1 ORDER BY id ASC',
-        [req.user.userId]
+        'SELECT * FROM agroirrigate.parcels ORDER BY id ASC'
       );
       
-      res.json(result.rows);
+      // Si no hay parcelas, crear algunas por defecto
+      if (result.rows.length === 0) {
+        console.log('No hay parcelas en la base de datos, creando parcelas por defecto...');
+        const defaultParcels = [
+          { name: 'Parcela #1', user_id: 1, humidity: 19 },
+          { name: 'Parcela #2', user_id: 1, humidity: 49 },
+          { name: 'Parcela #3', user_id: 1, humidity: 34 }
+        ];
+        
+        for (const parcel of defaultParcels) {
+          await client.query(
+            'INSERT INTO agroirrigate.parcels (name, user_id, humidity) VALUES ($1, $2, $3)',
+            [parcel.name, parcel.user_id, parcel.humidity]
+          );
+        }
+        
+        // Obtener las parcelas recién creadas
+        const newResult = await client.query(
+          'SELECT * FROM agroirrigate.parcels ORDER BY id ASC'
+        );
+        res.json(newResult.rows);
+      } else {
+        res.json(result.rows);
+      }
       await client.end();
     } catch (err) {
       console.error('Error al obtener parcelas:', err.message);
@@ -36,6 +59,11 @@ const parcelController = {
   },
 
   createParcel: async (req, res) => {
+    // Solo administradores pueden crear parcelas
+    if (req.user.rol !== 2) {
+      return res.status(403).json({ message: 'Solo los administradores pueden crear parcelas' });
+    }
+    
     const { name } = req.body;
     
     if (!name) {
@@ -63,6 +91,11 @@ const parcelController = {
   },
 
   deleteParcel: async (req, res) => {
+    // Solo administradores pueden eliminar parcelas
+    if (req.user.rol !== 2) {
+      return res.status(403).json({ message: 'Solo los administradores pueden eliminar parcelas' });
+    }
+    
     const { id } = req.params;
 
     try {
@@ -73,8 +106,8 @@ const parcelController = {
       await client.query(ensureParcelsTableSQL);
       
       const result = await client.query(
-        'DELETE FROM agroirrigate.parcels WHERE id = $1 AND user_id = $2 RETURNING *',
-        [id, req.user.userId]
+        'DELETE FROM agroirrigate.parcels WHERE id = $1 RETURNING *',
+        [id]
       );
 
       if (result.rowCount === 0) {

@@ -44,11 +44,16 @@ const Dashboard = ({ updateAuthStatus }) => {
   const fetchParcels = async () => {
     try {
       const token = localStorage.getItem("authToken");
+      console.log("🔍 Iniciando fetchParcels...");
+      console.log("🔑 Token disponible:", !!token);
+      
       if (!token) {
+        console.log("❌ No hay token, redirigiendo al login");
         navigate('/', { replace: true });
         return;
       }
 
+      console.log("📡 Haciendo petición a:", `${API_BASE_URL}/parcels`);
       const response = await fetch(`${API_BASE_URL}/parcels`, {
         method: 'GET',
         headers: {
@@ -56,14 +61,16 @@ const Dashboard = ({ updateAuthStatus }) => {
         },
       });
 
+      console.log("📊 Respuesta del servidor:", response.status, response.statusText);
+
       if (!response.ok) {
         if (response.status === 404) {
           // Si no hay parcelas, inicializar con datos por defecto
-          console.log("No se encontraron parcelas, usando datos por defecto");
+          console.log("⚠️ No se encontraron parcelas (404), usando datos por defecto");
           const defaultParcels = [
-            { id: 1, name: "Parcela #1", humidity: 0, user_id: 1 },
-            { id: 2, name: "Parcela #2", humidity: 0, user_id: 1 },
-            { id: 3, name: "Parcela #3", humidity: 0, user_id: 1 }
+            { id: 1, name: "Parcela #1", humidity: 19, user_id: 1 },
+            { id: 2, name: "Parcela #2", humidity: 49, user_id: 1 },
+            { id: 3, name: "Parcela #3", humidity: 34, user_id: 1 }
           ];
           setParcels(defaultParcels);
           if (defaultParcels.length > 0) {
@@ -75,23 +82,27 @@ const Dashboard = ({ updateAuthStatus }) => {
       }
 
       const data = await response.json();
+      console.log("✅ Datos recibidos del servidor:", data);
       setParcels(data);
 
       // Si hay parcelas y ninguna está seleccionada, selecciona la primera por defecto
       if (data.length > 0 && selectedParcelId === null) {
+        console.log("🎯 Seleccionando primera parcela:", data[0].id);
         setSelectedParcelId(data[0].id);
       } else if (data.length === 0) {
+        console.log("⚠️ No hay parcelas en la respuesta");
         // Si no hay parcelas, nos aseguramos de que no haya ninguna seleccionada
         setSelectedParcelId(null);
       }
 
     } catch (error) {
-      console.error("Error en fetchParcels:", error);
+      console.error("❌ Error en fetchParcels:", error);
       // En caso de error, usar datos por defecto
+      console.log("🔄 Usando datos por defecto debido al error");
       const defaultParcels = [
-        { id: 1, name: "Parcela #1", humidity: 0, user_id: 1 },
-        { id: 2, name: "Parcela #2", humidity: 0, user_id: 1 },
-        { id: 3, name: "Parcela #3", humidity: 0, user_id: 1 }
+        { id: 1, name: "Parcela #1", humidity: 19, user_id: 1 },
+        { id: 2, name: "Parcela #2", humidity: 49, user_id: 1 },
+        { id: 3, name: "Parcela #3", humidity: 34, user_id: 1 }
       ];
       setParcels(defaultParcels);
       if (defaultParcels.length > 0) {
@@ -536,6 +547,27 @@ const Dashboard = ({ updateAuthStatus }) => {
                   onClick={() => openAdminModal('users')}
                 >
                   <i className="fa fa-users"></i> Gestionar Usuarios
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Sección para usuarios normales - solo funciones básicas */}
+          {userRole !== 2 && (
+            <div className="user-menu">
+              <h3>Funciones Disponibles</h3>
+              <div className="user-buttons">
+                <button 
+                  className="action-button transparent-button"
+                  onClick={() => setShowMapViewer(true)}
+                >
+                  <i className="fa fa-eye"></i> Ver Mapa de Parcelas
+                </button>
+                <button 
+                  className="action-button transparent-button"
+                  onClick={() => openAdminModal('reports')}
+                >
+                  <i className="fa fa-chart-bar"></i> Ver Reportes
                 </button>
               </div>
             </div>
