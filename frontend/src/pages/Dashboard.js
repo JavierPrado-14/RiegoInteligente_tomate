@@ -552,11 +552,23 @@ const Dashboard = ({ updateAuthStatus }) => {
             </div>
           )}
 
-          {/* Sección para usuarios normales - solo funciones básicas */}
+          {/* Sección para usuarios normales - funciones básicas + gestión de parcelas */}
           {userRole !== 2 && (
             <div className="user-menu">
               <h3>Funciones Disponibles</h3>
               <div className="user-buttons">
+                <button 
+                  className="action-button transparent-button"
+                  onClick={handleAddParcel}
+                >
+                  <i className="fa fa-plus"></i> Agregar Parcela
+                </button>
+                <button 
+                  className="action-button transparent-button"
+                  onClick={handleDeleteParcel}
+                >
+                  <i className="fa fa-trash"></i> Eliminar Parcela
+                </button>
                 <button 
                   className="action-button transparent-button"
                   onClick={() => setShowMapViewer(true)}

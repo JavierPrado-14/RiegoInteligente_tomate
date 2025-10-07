@@ -7,12 +7,51 @@ const programarRiego = async (req, res) => {
   const { fecha, horaInicio, horaFin, parcela } = req.body;
 
   try {
+    // Validar datos requeridos
+    if (!fecha || !horaInicio || !horaFin || !parcela) {
+      return res.status(400).json({ message: "Todos los campos son requeridos" });
+    }
+
+    // Validar formato de fecha (YYYY-MM-DD)
+    const fechaRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!fechaRegex.test(fecha)) {
+      return res.status(400).json({ message: "Formato de fecha inválido. Use YYYY-MM-DD" });
+    }
+
+    // Validar formato de hora (HH:MM)
+    const horaRegex = /^\d{2}:\d{2}$/;
+    if (!horaRegex.test(horaInicio) || !horaRegex.test(horaFin)) {
+      return res.status(400).json({ message: "Formato de hora inválido. Use HH:MM" });
+    }
+
+    // Validar que horaFin sea posterior a horaInicio
+    const [horaInicioH, horaInicioM] = horaInicio.split(':').map(Number);
+    const [horaFinH, horaFinM] = horaFin.split(':').map(Number);
+    const minutosInicio = horaInicioH * 60 + horaInicioM;
+    const minutosFin = horaFinH * 60 + horaFinM;
+    
+    if (minutosFin <= minutosInicio) {
+      return res.status(400).json({ message: "La hora de finalización debe ser posterior a la hora de inicio" });
+    }
+
     // Conectar a PostgreSQL
     const client = new Client(sqlConfig);
     await client.connect();
 
-  // Insertar la programación de riego en la base de datos (esquema agroirrigate)
-  const query = `
+    // Asegurar que la tabla existe
+    await client.query(`
+      CREATE SCHEMA IF NOT EXISTS agroirrigate;
+      CREATE TABLE IF NOT EXISTS agroirrigate.programacionriego (
+        id SERIAL PRIMARY KEY,
+        fecha DATE NOT NULL,
+        hora_inicio TIME NOT NULL,
+        hora_fin TIME NOT NULL,
+        parcela VARCHAR(255) NOT NULL
+      );
+    `);
+
+    // Insertar la programación de riego en la base de datos (esquema agroirrigate)
+    const query = `
       INSERT INTO agroirrigate.programacionriego (fecha, hora_inicio, hora_fin, parcela)
       VALUES ($1, $2, $3, $4)
     `;

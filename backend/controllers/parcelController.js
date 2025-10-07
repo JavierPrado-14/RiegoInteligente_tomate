@@ -59,10 +59,7 @@ const parcelController = {
   },
 
   createParcel: async (req, res) => {
-    // Solo administradores pueden crear parcelas
-    if (req.user.rol !== 2) {
-      return res.status(403).json({ message: 'Solo los administradores pueden crear parcelas' });
-    }
+    // Todos los usuarios autenticados pueden crear parcelas
     
     const { name } = req.body;
     
@@ -91,10 +88,7 @@ const parcelController = {
   },
 
   deleteParcel: async (req, res) => {
-    // Solo administradores pueden eliminar parcelas
-    if (req.user.rol !== 2) {
-      return res.status(403).json({ message: 'Solo los administradores pueden eliminar parcelas' });
-    }
+    // Todos los usuarios autenticados pueden eliminar parcelas
     
     const { id } = req.params;
 
