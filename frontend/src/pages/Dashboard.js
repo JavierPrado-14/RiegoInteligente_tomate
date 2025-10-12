@@ -513,7 +513,7 @@ const Dashboard = ({ updateAuthStatus }) => {
             <i className="fa fa-sign-out"></i> Cerrar Sesión
           </button>
 
-          <h1>Aplicación de Riego</h1>
+          <h1>Sistema de Riego Cultivo de Tomate - San Miguel Dueñas</h1>
           
           {/* Selector de Mapas */}
           <div className="map-selector-container">
