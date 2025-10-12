@@ -5,6 +5,7 @@ import cicloImage from '../assets/images/ciclo.jpg';
 const WaterSaturationMap = ({ onClose, parcels = [] }) => {
   const [parcelData, setParcelData] = useState([]);
   const [litrosMap, setLitrosMap] = useState({});
+  const [sensors, setSensors] = useState([]);
   const API_BASE_URL = "http://localhost:4000/api";
 
   // Datos de ejemplo para las parcelas (solo 3 parcelas)
@@ -23,7 +24,56 @@ const WaterSaturationMap = ({ onClose, parcels = [] }) => {
     const prefill = {};
     fromDashboard.forEach(p => { prefill[p.id] = calcularLitrosSegunHumedad(p.saturation); });
     setLitrosMap(prefill);
+    
+    // Cargar sensores
+    fetchSensors();
+    
+    // Actualizar conectividad cada 5 segundos
+    const interval = setInterval(() => {
+      updateSensorConnectivity();
+    }, 5000);
+    
+    return () => clearInterval(interval);
   }, [parcels]);
+  
+  // Función para obtener sensores
+  const fetchSensors = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/sensors`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSensors(data);
+      }
+    } catch (error) {
+      console.error('Error al obtener sensores:', error);
+    }
+  };
+  
+  // Función para actualizar conectividad de sensores
+  const updateSensorConnectivity = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/sensors/update-connectivity`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSensors(data);
+      }
+    } catch (error) {
+      console.error('Error al actualizar sensores:', error);
+    }
+  };
 
   const handleLitrosChange = (parcelId, litros) => {
     setLitrosMap(prev => ({ ...prev, [parcelId]: litros }));
@@ -203,6 +253,88 @@ const WaterSaturationMap = ({ onClose, parcels = [] }) => {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Sección de Sensores */}
+        <div className="sensors-section">
+          <h3>
+            <i className="fa fa-wifi"></i> Sensores de Humedad (Soil Moisture Sensor)
+            <span className="realtime-badge">🔴 En Tiempo Real</span>
+          </h3>
+          
+          {sensors.length === 0 ? (
+            <div className="no-sensors">
+              <p>No hay sensores configurados</p>
+            </div>
+          ) : (
+            <div className="sensors-grid">
+              {sensors.map(sensor => {
+                const connectivityClass = 
+                  sensor.connectivity_status === 'stable' ? 'connectivity-stable' :
+                  sensor.connectivity_status === 'medium' ? 'connectivity-medium' :
+                  'connectivity-low';
+                
+                const connectivityText = 
+                  sensor.connectivity_status === 'stable' ? 'Estable' :
+                  sensor.connectivity_status === 'medium' ? 'Media' :
+                  'Baja';
+                
+                const connectivityIcon = 
+                  sensor.connectivity_status === 'stable' ? '✅' :
+                  sensor.connectivity_status === 'medium' ? '⚠️' :
+                  '❌';
+                
+                return (
+                  <div key={sensor.id} className={`sensor-card ${connectivityClass}`}>
+                    <div className="sensor-header">
+                      <h4>{sensor.sensor_name}</h4>
+                      <span className="sensor-type">{sensor.sensor_type}</span>
+                    </div>
+                    
+                    <div className="sensor-info">
+                      <div className="info-row">
+                        <span className="label">Parcela:</span>
+                        <span className="value">{sensor.parcel_name}</span>
+                      </div>
+                      
+                      <div className="info-row">
+                        <span className="label">Humedad:</span>
+                        <span className="value">{sensor.humidity}%</span>
+                      </div>
+                      
+                      <div className="info-row">
+                        <span className="label">Conectividad:</span>
+                        <span className={`connectivity-badge ${connectivityClass}`}>
+                          {connectivityIcon} {connectivityText}
+                        </span>
+                      </div>
+                      
+                      <div className="info-row">
+                        <span className="label">Señal:</span>
+                        <span className="value">
+                          <div className="signal-bar-container">
+                            <div 
+                              className="signal-bar" 
+                              style={{ width: `${sensor.signal_strength}%` }}
+                            >
+                              {sensor.signal_strength}%
+                            </div>
+                          </div>
+                        </span>
+                      </div>
+                      
+                      <div className="info-row">
+                        <span className="label">Última lectura:</span>
+                        <span className="value">
+                          {new Date(sensor.last_reading).toLocaleTimeString('es-GT')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

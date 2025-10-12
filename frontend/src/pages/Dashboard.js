@@ -17,7 +17,10 @@ const Dashboard = ({ updateAuthStatus }) => {
 
   // El estado ahora se inicializa vacío. Se llenará con datos de la API.
   const [parcels, setParcels] = useState([]);
+  const [allParcels, setAllParcels] = useState([]); // Todas las parcelas sin filtrar
   const [selectedParcelId, setSelectedParcelId] = useState(null);
+  const [maps, setMaps] = useState([]);
+  const [selectedMapId, setSelectedMapId] = useState(null); // null = "Todas las parcelas"
   
   const [isWatering, setIsWatering] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,6 +42,60 @@ const Dashboard = ({ updateAuthStatus }) => {
 
   // URL base del backend
   const API_BASE_URL = "http://localhost:4000/api";
+
+  // Función para cargar mapas del usuario
+  const fetchMaps = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${API_BASE_URL}/maps`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMaps(data);
+      }
+    } catch (error) {
+      console.error("Error al cargar mapas:", error);
+    }
+  };
+
+  // Función para filtrar parcelas por mapa seleccionado
+  const filterParcelsByMap = async (mapId) => {
+    setSelectedMapId(mapId);
+    
+    if (!mapId) {
+      // Mostrar todas las parcelas
+      setParcels(allParcels);
+      if (allParcels.length > 0) {
+        setSelectedParcelId(allParcels[0].id);
+      }
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${API_BASE_URL}/maps/${mapId}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const mapData = await response.json();
+        const mapParcels = mapData.parcels.map(p => ({
+          id: p.id,
+          name: p.name,
+          humidity: p.humidity
+        }));
+        
+        setParcels(mapParcels);
+        if (mapParcels.length > 0) {
+          setSelectedParcelId(mapParcels[0].id);
+        }
+      }
+    } catch (error) {
+      console.error("Error al filtrar parcelas por mapa:", error);
+    }
+  };
 
   // --- FUNCIÓN PARA OBTENER LAS PARCELAS DESDE LA API ---
   const fetchParcels = async () => {
@@ -83,7 +140,8 @@ const Dashboard = ({ updateAuthStatus }) => {
 
       const data = await response.json();
       console.log("✅ Datos recibidos del servidor:", data);
-      setParcels(data);
+      setAllParcels(data); // Guardar todas las parcelas
+      setParcels(data); // Mostrar todas inicialmente
 
       // Si hay parcelas y ninguna está seleccionada, selecciona la primera por defecto
       if (data.length > 0 && selectedParcelId === null) {
@@ -116,6 +174,7 @@ const Dashboard = ({ updateAuthStatus }) => {
   // Carga inicial de datos y rol de usuario
   useEffect(() => {
     fetchParcels();
+    fetchMaps(); // Cargar mapas también
 
     const rol = localStorage.getItem("userRol");
     if (rol) {
@@ -454,6 +513,35 @@ const Dashboard = ({ updateAuthStatus }) => {
 
           <h1>Aplicación de Riego</h1>
           
+          {/* Selector de Mapas */}
+          <div className="map-selector-container">
+            <label htmlFor="map-filter">
+              <i className="fa fa-map"></i> Filtrar por Mapa:
+            </label>
+            <select 
+              id="map-filter"
+              className="map-selector"
+              value={selectedMapId || ''}
+              onChange={(e) => filterParcelsByMap(e.target.value || null)}
+            >
+              <option value="">📍 Todas las parcelas ({allParcels.length})</option>
+              {maps.map(map => (
+                <option key={map.id} value={map.id}>
+                  🗺️ {map.map_name}
+                </option>
+              ))}
+            </select>
+            {selectedMapId && (
+              <button 
+                className="btn-clear-filter"
+                onClick={() => filterParcelsByMap(null)}
+                title="Ver todas las parcelas"
+              >
+                <i className="fa fa-times"></i> Limpiar filtro
+              </button>
+            )}
+          </div>
+
           <ParcelMap
             parcels={parcels}
             selectedParcelId={selectedParcelId}
@@ -506,6 +594,7 @@ const Dashboard = ({ updateAuthStatus }) => {
             >
               <i className="fa fa-fire"></i> Ver Saturación de Agua
             </button>
+
           </div>
 
           {userRole === 2 && (
@@ -594,7 +683,7 @@ const Dashboard = ({ updateAuthStatus }) => {
         </div>
       </div>
 
-      <ModalProgramarRiego isOpen={isModalOpen} closeModal={closeModal} />
+      <ModalProgramarRiego isOpen={isModalOpen} closeModal={closeModal} parcels={parcels} />
       
       {isSaturationModalOpen && (
         <div className="modal-overlay">
@@ -623,7 +712,12 @@ const Dashboard = ({ updateAuthStatus }) => {
       {/* Componentes de Mapas */}
       {showMapDesigner && (
         <MapDesigner 
-          onClose={() => setShowMapDesigner(false)}
+          onClose={() => {
+            setShowMapDesigner(false);
+            // Refrescar parcelas y mapas después de cerrar el diseñador
+            fetchParcels();
+            fetchMaps();
+          }}
           parcels={parcels}
         />
       )}
@@ -640,6 +734,7 @@ const Dashboard = ({ updateAuthStatus }) => {
           closeModal={closeAdminModal}
         />
       )}
+
     </div>
   );
 };

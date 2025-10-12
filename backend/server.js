@@ -1,4 +1,5 @@
 // backend/server.js
+require('dotenv').config({ path: './config.env' });
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
@@ -28,6 +29,9 @@ app.use("/api/agua", require("./routes/aguaRoutes"));
 
 // Rutas de parcelas
 app.use("/api/parcels", require("./routes/parcelRoutes"));
+app.use("/api/alerts", require("./routes/alertRoutes"));
+app.use("/api/sensors", require("./routes/sensorRoutes"));
+app.use("/api/maps", require("./routes/mapRoutes"));
 
 // Ruta de prueba simple
 app.get("/", (req, res) => {
@@ -51,4 +55,8 @@ const PORT = 4000;
 
 server.listen(PORT, () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
+  
+  // Iniciar monitor de alertas SMS
+  const { startAlertMonitor } = require('./services/alertMonitor');
+  startAlertMonitor();
 });

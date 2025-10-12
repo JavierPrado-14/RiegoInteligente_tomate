@@ -10,7 +10,7 @@ const getUsers = async (req, res) => {
     await client.connect();
 
     const result = await client.query(
-      "SELECT id, nombre_usuario, correo, rol FROM agroirrigate.usuarios ORDER BY id"
+      "SELECT id, nombre_usuario, correo, rol, telefono FROM agroirrigate.usuarios ORDER BY id"
     );
 
     res.json(result.rows);
@@ -24,7 +24,7 @@ const getUsers = async (req, res) => {
 // Actualizar usuario
 const updateUser = async (req, res) => {
   const { id } = req.params;
-  const { nombre_usuario, correo, rol, contrasena } = req.body;
+  const { nombre_usuario, correo, rol, contrasena, telefono } = req.body;
 
   try {
     const client = new Client(sqlConfig);
@@ -60,10 +60,16 @@ const updateUser = async (req, res) => {
       paramCount++;
     }
 
+    if (telefono) {
+      query += ` telefono = $${paramCount},`;
+      values.push(telefono);
+      paramCount++;
+    }
+
     // Eliminar la última coma
     query = query.slice(0, -1);
 
-    query += ` WHERE id = $${paramCount} RETURNING id, nombre_usuario, correo, rol`;
+    query += ` WHERE id = $${paramCount} RETURNING id, nombre_usuario, correo, rol, telefono`;
     values.push(id);
 
     const result = await client.query(query, values);

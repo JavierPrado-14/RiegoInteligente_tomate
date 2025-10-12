@@ -111,46 +111,129 @@ const MapDesigner = ({ onClose, parcels = [] }) => {
     setMapParcels(prev => prev.filter(p => p.id !== parcelId));
   };
 
-  const saveMap = () => {
+  const saveMap = async () => {
     if (!mapName.trim()) {
       alert('Por favor ingresa un nombre para el mapa');
       return;
     }
     
-    const mapData = {
-      name: mapName,
-      parcels: mapParcels,
-      createdAt: new Date().toISOString()
-    };
-    
-    // Guardar en localStorage por ahora
-    const savedMaps = JSON.parse(localStorage.getItem('savedMaps') || '[]');
-    savedMaps.push(mapData);
-    localStorage.setItem('savedMaps', JSON.stringify(savedMaps));
-    
-    alert(`Mapa "${mapName}" guardado exitosamente`);
-    setMapName('');
-  };
-
-  const loadMap = () => {
-    const savedMaps = JSON.parse(localStorage.getItem('savedMaps') || '[]');
-    if (savedMaps.length === 0) {
-      alert('No hay mapas guardados');
+    if (mapParcels.length === 0) {
+      alert('Agrega al menos una parcela al mapa antes de guardar');
       return;
     }
     
-    const mapNames = savedMaps.map(map => map.name);
-    const selectedMapName = prompt(`Mapas disponibles:\n${mapNames.join('\n')}\n\nIngresa el nombre del mapa a cargar:`);
-    
-    if (selectedMapName) {
-      const mapToLoad = savedMaps.find(map => map.name === selectedMapName);
-      if (mapToLoad) {
-        setMapParcels(mapToLoad.parcels);
-        setMapName(selectedMapName);
-        alert(`Mapa "${selectedMapName}" cargado exitosamente`);
-      } else {
-        alert('Mapa no encontrado');
+    try {
+      const token = localStorage.getItem('authToken');
+      
+      const mapData = {
+        mapName: mapName,
+        parcels: mapParcels.map(p => ({
+          name: p.name,
+          humidity: p.humidity,
+          x: p.x,
+          y: p.y,
+          width: p.width,
+          height: p.height
+        }))
+      };
+      
+      const response = await fetch('http://localhost:4000/api/maps', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(mapData)
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al guardar el mapa');
       }
+      
+      const result = await response.json();
+      
+      alert(`✅ Mapa "${mapName}" guardado exitosamente!\n\n` +
+            `📍 ${result.map.parcels.length} parcelas creadas\n` +
+            `📡 ${result.map.parcels.length} sensores configurados\n\n` +
+            `Las parcelas ahora aparecerán en tu Dashboard`);
+      
+      setMapName('');
+      setMapParcels([]);
+      
+    } catch (error) {
+      console.error('Error al guardar mapa:', error);
+      alert('Error al guardar el mapa: ' + error.message);
+    }
+  };
+
+  const loadMap = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      
+      const response = await fetch('http://localhost:4000/api/maps', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al cargar mapas');
+      }
+      
+      const maps = await response.json();
+      
+      if (maps.length === 0) {
+        alert('No hay mapas guardados');
+        return;
+      }
+      
+      // Mostrar lista de mapas disponibles
+      const mapsList = maps.map((m, idx) => 
+        `${idx + 1}. ${m.map_name} (${new Date(m.created_at).toLocaleDateString('es-GT')})`
+      ).join('\n');
+      
+      const selection = prompt(`Mapas disponibles:\n\n${mapsList}\n\nIngresa el número del mapa que deseas cargar:`);
+      
+      const index = parseInt(selection) - 1;
+      if (index >= 0 && index < maps.length) {
+        const selectedMap = maps[index];
+        
+        // Cargar detalles del mapa
+        const detailResponse = await fetch(`http://localhost:4000/api/maps/${selectedMap.id}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!detailResponse.ok) {
+          throw new Error('Error al cargar detalles del mapa');
+        }
+        
+        const mapDetails = await detailResponse.json();
+        
+        // Cargar parcelas del mapa con sus posiciones
+        const loadedParcels = mapDetails.parcels.map(p => ({
+          id: p.id,
+          name: p.name,
+          humidity: p.humidity,
+          x: p.x,
+          y: p.y,
+          width: p.width,
+          height: p.height,
+          color: getHumidityColor(p.humidity)
+        }));
+        
+        setMapParcels(loadedParcels);
+        setMapName(mapDetails.map_name);
+        alert(`✅ Mapa "${mapDetails.map_name}" cargado con ${loadedParcels.length} parcelas`);
+      } else {
+        alert('Selección inválida');
+      }
+      
+    } catch (error) {
+      console.error('Error al cargar mapa:', error);
+      alert('Error al cargar el mapa: ' + error.message);
     }
   };
 

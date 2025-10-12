@@ -6,9 +6,16 @@ const sqlConfig = require("../config/sqlConfig");
 
 // Función para registrar un nuevo usuario
 const registerUser = async (req, res) => {
-  const { nombre_usuario, contrasena, correo, rol = 1 } = req.body; // Rol por defecto: 1 (usuario)
+  const { nombre_usuario, contrasena, correo, telefono, rol = 1 } = req.body; // Rol por defecto: 1 (usuario)
 
   try {
+    // Validar formato de teléfono si se proporciona
+    if (telefono && !/^\+[1-9]\d{1,14}$/.test(telefono)) {
+      return res.status(400).json({ 
+        message: "Formato de teléfono inválido. Use formato internacional (ej: +50212345678)" 
+      });
+    }
+
     // Cifrar la contraseña
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(contrasena, salt);
@@ -17,15 +24,25 @@ const registerUser = async (req, res) => {
     const client = new Client(sqlConfig);
     await client.connect();
 
-    // Insertar el nuevo usuario en la base de datos (incluyendo el rol)
-    const query = "INSERT INTO AgroIrrigate.Usuarios (nombre_usuario, contrasena, correo, rol) VALUES ($1, $2, $3, $4)";
-    const values = [nombre_usuario, hashedPassword, correo, rol];
+    // Insertar el nuevo usuario en la base de datos (incluyendo el rol y teléfono)
+    const query = "INSERT INTO agroirrigate.usuarios (nombre_usuario, contrasena, correo, telefono, rol) VALUES ($1, $2, $3, $4, $5) RETURNING id, nombre_usuario, correo, telefono, rol";
+    const values = [nombre_usuario, hashedPassword, correo, telefono || null, rol];
     
     // Realizamos la consulta de inserción
-    await client.query(query, values);
+    const result = await client.query(query, values);
+    const newUser = result.rows[0];
 
-    // Respuesta exitosa
-    res.status(201).json({ message: "Usuario registrado con éxito" });
+    // Respuesta exitosa con datos del usuario
+    res.status(201).json({ 
+      message: "Usuario registrado con éxito",
+      user: {
+        id: newUser.id,
+        nombre_usuario: newUser.nombre_usuario,
+        correo: newUser.correo,
+        telefono: newUser.telefono,
+        rol: newUser.rol
+      }
+    });
 
     client.end();
   } catch (err) {
@@ -68,9 +85,10 @@ const loginUser = async (req, res) => {
       rol: user.rol 
     }, "secreta", { expiresIn: "1h" });
 
-    // Responder con el token y el rol en formato JSON
+    // Responder con el token, el rol y el userId en formato JSON
     res.json({ 
       token,
+      userId: user.id,
       rol: user.rol 
     });
 

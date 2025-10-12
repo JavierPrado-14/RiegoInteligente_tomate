@@ -1,14 +1,21 @@
 // frontend/src/components/ProgramarRiego.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./ProgramarRiego.css"; // Archivo CSS para estilos específicos
 
-const ProgramarRiego = () => {
+const ProgramarRiego = ({ parcels = [] }) => {
   const [fecha, setFecha] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
   const [horaFin, setHoraFin] = useState("");
-  const [parcela, setParcela] = useState("Parcela #1");
+  const [parcela, setParcela] = useState(parcels.length > 0 ? parcels[0].name : "");
   const [mensaje, setMensaje] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Actualizar la parcela seleccionada cuando cambien las parcelas disponibles
+  useEffect(() => {
+    if (parcels.length > 0 && (!parcela || !parcels.find(p => p.name === parcela))) {
+      setParcela(parcels[0].name);
+    }
+  }, [parcels, parcela]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,7 +40,7 @@ const ProgramarRiego = () => {
         setFecha("");
         setHoraInicio("");
         setHoraFin("");
-        setParcela("Parcela #1");
+        setParcela(parcels.length > 0 ? parcels[0].name : "");
       } else {
         setMensaje({ text: data.message || "Error al programar riego", type: "error" });
       }
@@ -58,9 +65,11 @@ const ProgramarRiego = () => {
               onChange={(e) => setParcela(e.target.value)}
               className="form-select"
             >
-              <option value="Parcela #1">Parcela #1</option>
-              <option value="Parcela #2">Parcela #2</option>
-              <option value="Parcela #3">Parcela #3</option>
+              {parcels.map(parcel => (
+                <option key={parcel.id} value={parcel.name}>
+                  {parcel.name}
+                </option>
+              ))}
             </select>
           </div>
         </div>

@@ -32,6 +32,72 @@
   overflow-y: auto; /* Añadido para permitir scroll si el contenido es muy alto */
 }
 
+/* Selector de Mapas */
+.map-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 15px 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  flex-wrap: wrap;
+}
+
+.map-selector-container label {
+  font-weight: bold;
+  color: #2c3e50;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-selector {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 15px;
+  font-size: 15px;
+  border: 2px solid #3498db;
+  border-radius: 8px;
+  background-color: white;
+  color: #2c3e50;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.map-selector:hover {
+  border-color: #2980b9;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+}
+
+.map-selector:focus {
+  outline: none;
+  border-color: #2980b9;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+.btn-clear-filter {
+  padding: 8px 15px;
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-clear-filter:hover {
+  background-color: #c0392b;
+  transform: scale(1.05);
+}
+
 /* Botón de cerrar sesión */
 .logout-button {
   position: absolute;

@@ -22,35 +22,19 @@ const parcelController = {
       // Asegurar tabla
       await client.query(ensureParcelsTableSQL);
       
-      // Mostrar todas las parcelas para que usuarios normales vean las del administrador
+      // Obtener el userId del token JWT (viene de req.user gracias al middleware auth)
+      const userId = req.user.userId;
+      
+      // Filtrar parcelas solo del usuario autenticado
       const result = await client.query(
-        'SELECT * FROM agroirrigate.parcels ORDER BY id ASC'
+        'SELECT * FROM agroirrigate.parcels WHERE user_id = $1 ORDER BY id ASC',
+        [userId]
       );
       
-      // Si no hay parcelas, crear algunas por defecto
-      if (result.rows.length === 0) {
-        console.log('No hay parcelas en la base de datos, creando parcelas por defecto...');
-        const defaultParcels = [
-          { name: 'Parcela #1', user_id: 1, humidity: 19 },
-          { name: 'Parcela #2', user_id: 1, humidity: 49 },
-          { name: 'Parcela #3', user_id: 1, humidity: 34 }
-        ];
-        
-        for (const parcel of defaultParcels) {
-          await client.query(
-            'INSERT INTO agroirrigate.parcels (name, user_id, humidity) VALUES ($1, $2, $3)',
-            [parcel.name, parcel.user_id, parcel.humidity]
-          );
-        }
-        
-        // Obtener las parcelas recién creadas
-        const newResult = await client.query(
-          'SELECT * FROM agroirrigate.parcels ORDER BY id ASC'
-        );
-        res.json(newResult.rows);
-      } else {
-        res.json(result.rows);
-      }
+      // Si el usuario no tiene parcelas, devolver array vacío (no crear por defecto)
+      // Los usuarios pueden crear sus propias parcelas desde el frontend
+      res.json(result.rows);
+      
       await client.end();
     } catch (err) {
       console.error('Error al obtener parcelas:', err.message);
@@ -88,9 +72,10 @@ const parcelController = {
   },
 
   deleteParcel: async (req, res) => {
-    // Todos los usuarios autenticados pueden eliminar parcelas
+    // Los usuarios solo pueden eliminar sus propias parcelas
     
     const { id } = req.params;
+    const userId = req.user.userId;
 
     try {
       const client = new Client(sqlConfig);
@@ -99,13 +84,14 @@ const parcelController = {
       // Asegurar tabla
       await client.query(ensureParcelsTableSQL);
       
+      // Solo eliminar si la parcela pertenece al usuario
       const result = await client.query(
-        'DELETE FROM agroirrigate.parcels WHERE id = $1 RETURNING *',
-        [id]
+        'DELETE FROM agroirrigate.parcels WHERE id = $1 AND user_id = $2 RETURNING *',
+        [id, userId]
       );
 
       if (result.rowCount === 0) {
-        return res.status(404).json({ message: 'Parcela no encontrada' });
+        return res.status(404).json({ message: 'Parcela no encontrada o no tienes permisos para eliminarla' });
       }
 
       res.json({ message: 'Parcela eliminada correctamente' });

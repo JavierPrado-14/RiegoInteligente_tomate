@@ -10,9 +10,26 @@ const MapViewer = ({ onClose }) => {
     loadSavedMaps();
   }, []);
 
-  const loadSavedMaps = () => {
-    const maps = JSON.parse(localStorage.getItem('savedMaps') || '[]');
-    setSavedMaps(maps);
+  const loadSavedMaps = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      
+      const response = await fetch('http://localhost:4000/api/maps', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const maps = await response.json();
+        setSavedMaps(maps);
+      } else {
+        setSavedMaps([]);
+      }
+    } catch (error) {
+      console.error('Error al cargar mapas:', error);
+      setSavedMaps([]);
+    }
   };
 
   const getHumidityColor = (humidity) => {
@@ -31,19 +48,76 @@ const MapViewer = ({ onClose }) => {
     return 'Muy Húmedo';
   };
 
-  const viewMap = (map) => {
-    setSelectedMap(map);
-    setViewMode('map');
+  const viewMap = async (map) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      
+      // Cargar detalles completos del mapa
+      const response = await fetch(`http://localhost:4000/api/maps/${map.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al cargar mapa');
+      }
+      
+      const mapDetails = await response.json();
+      
+      // Formatear para la vista
+      const formattedMap = {
+        id: mapDetails.id,
+        name: mapDetails.map_name,
+        createdAt: mapDetails.created_at,
+        parcels: mapDetails.parcels.map(p => ({
+          id: p.id,
+          name: p.name,
+          humidity: p.humidity,
+          x: p.x,
+          y: p.y,
+          width: p.width,
+          height: p.height,
+          color: getHumidityColor(p.humidity)
+        }))
+      };
+      
+      setSelectedMap(formattedMap);
+      setViewMode('map');
+    } catch (error) {
+      console.error('Error al ver mapa:', error);
+      alert('Error al cargar el mapa: ' + error.message);
+    }
   };
 
-  const deleteMap = (mapName) => {
+  const deleteMap = async (mapId, mapName) => {
     if (window.confirm(`¿Estás seguro de que deseas eliminar el mapa "${mapName}"?`)) {
-      const updatedMaps = savedMaps.filter(map => map.name !== mapName);
-      localStorage.setItem('savedMaps', JSON.stringify(updatedMaps));
-      setSavedMaps(updatedMaps);
-      if (selectedMap && selectedMap.name === mapName) {
-        setSelectedMap(null);
-        setViewMode('list');
+      try {
+        const token = localStorage.getItem('authToken');
+        
+        const response = await fetch(`http://localhost:4000/api/maps/${mapId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Error al eliminar mapa');
+        }
+        
+        // Recargar lista de mapas
+        await loadSavedMaps();
+        
+        if (selectedMap && selectedMap.id === mapId) {
+          setSelectedMap(null);
+          setViewMode('list');
+        }
+        
+        alert(`Mapa "${mapName}" eliminado exitosamente`);
+      } catch (error) {
+        console.error('Error al eliminar mapa:', error);
+        alert('Error al eliminar el mapa: ' + error.message);
       }
     }
   };
@@ -197,9 +271,9 @@ const MapViewer = ({ onClose }) => {
         ) : (
           <div className="maps-grid">
             {savedMaps.map((map, index) => (
-              <div key={index} className="map-card">
+              <div key={map.id || index} className="map-card">
                 <div className="map-card-header">
-                  <h3>{map.name}</h3>
+                  <h3>{map.map_name}</h3>
                   <div className="map-actions">
                     <button 
                       className="btn-view" 
@@ -210,7 +284,7 @@ const MapViewer = ({ onClose }) => {
                     </button>
                     <button 
                       className="btn-delete" 
-                      onClick={() => deleteMap(map.name)}
+                      onClick={() => deleteMap(map.id, map.map_name)}
                       title="Eliminar mapa"
                     >
                       <i className="fa fa-trash"></i>
@@ -219,40 +293,21 @@ const MapViewer = ({ onClose }) => {
                 </div>
                 
                 <div className="map-card-content">
-                  <div className="map-preview">
-                    {map.parcels.slice(0, 6).map(parcel => (
-                      <div
-                        key={parcel.id}
-                        className="preview-parcel"
-                        style={{
-                          backgroundColor: parcel.color,
-                          left: `${(parcel.x / 800) * 100}%`,
-                          top: `${(parcel.y / 600) * 100}%`
-                        }}
-                        title={`${parcel.name} - ${parcel.humidity}%`}
-                      ></div>
-                    ))}
-                    {map.parcels.length > 6 && (
-                      <div className="more-parcels">
-                        +{map.parcels.length - 6} más
-                      </div>
-                    )}
+                  <p className="map-date">
+                    Creado: {new Date(map.created_at).toLocaleDateString('es-GT')}
+                  </p>
+                  <div className="map-preview-text">
+                    <i className="fa fa-map-marker"></i> Click en "Ver" para visualizar el mapa completo
                   </div>
                   
                   <div className="map-info">
                     <div className="info-item">
-                      <i className="fa fa-th"></i>
-                      <span>{map.parcels.length} parcelas</span>
-                    </div>
-                    <div className="info-item">
                       <i className="fa fa-calendar"></i>
-                      <span>{new Date(map.createdAt).toLocaleDateString()}</span>
+                      <span>{new Date(map.created_at).toLocaleDateString('es-GT')}</span>
                     </div>
                     <div className="info-item">
-                      <i className="fa fa-tint"></i>
-                      <span>
-                        {Math.round(map.parcels.reduce((sum, p) => sum + p.humidity, 0) / map.parcels.length)}% humedad promedio
-                      </span>
+                      <i className="fa fa-clock-o"></i>
+                      <span>{new Date(map.created_at).toLocaleTimeString('es-GT')}</span>
                     </div>
                   </div>
                 </div>
