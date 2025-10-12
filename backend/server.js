@@ -32,6 +32,10 @@ app.use("/api/parcels", require("./routes/parcelRoutes"));
 app.use("/api/alerts", require("./routes/alertRoutes"));
 app.use("/api/sensors", require("./routes/sensorRoutes"));
 app.use("/api/maps", require("./routes/mapRoutes"));
+app.use("/api/images", require("./routes/imageRoutes"));
+
+// Servir archivos estáticos (imágenes)
+app.use("/uploads", express.static("uploads"));
 
 // Ruta de prueba simple
 app.get("/", (req, res) => {

@@ -58,15 +58,59 @@ const parcelController = {
       // Asegurar tabla
       await client.query(ensureParcelsTableSQL);
       
+      // Iniciar transacción para crear parcela y sensor
+      await client.query('BEGIN');
+      
+      // Crear parcela
       const result = await client.query(
         'INSERT INTO agroirrigate.parcels (name, user_id, humidity) VALUES ($1, $2, $3) RETURNING *',
         [name, req.user.userId, Math.floor(Math.random() * 50)]
       );
       
-      res.status(201).json(result.rows[0]);
+      const newParcel = result.rows[0];
+      console.log(`🌱 Parcela "${name}" creada con ID: ${newParcel.id} por usuario ${req.user.userId}`);
+      
+      // Crear sensor automáticamente para la parcela
+      const connectivityOptions = ['stable', 'medium', 'low'];
+      const randomConnectivity = connectivityOptions[Math.floor(Math.random() * connectivityOptions.length)];
+      const signalStrength = randomConnectivity === 'stable' ? 90 :
+                            randomConnectivity === 'medium' ? 65 : 35;
+
+      const sensorResult = await client.query(`
+        INSERT INTO agroirrigate.sensors 
+        (parcel_id, sensor_name, connectivity_status, signal_strength)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id
+      `, [newParcel.id, `Soil Moisture Sensor - ${name}`, randomConnectivity, signalStrength]);
+
+      console.log(`📡 Sensor ID ${sensorResult.rows[0].id} creado automáticamente para "${name}" - Conectividad: ${randomConnectivity}`);
+      
+      // Confirmar transacción
+      await client.query('COMMIT');
+      
+      // Incluir información del sensor en la respuesta
+      const parcelWithSensor = {
+        ...newParcel,
+        sensor_id: sensorResult.rows[0].id,
+        sensor_name: `Soil Moisture Sensor - ${name}`,
+        connectivity_status: randomConnectivity
+      };
+      
+      res.status(201).json(parcelWithSensor);
       await client.end();
     } catch (err) {
       console.error('Error al crear parcela:', err.message);
+      
+      // Rollback en caso de error
+      try {
+        const client = new Client(sqlConfig);
+        await client.connect();
+        await client.query('ROLLBACK');
+        await client.end();
+      } catch (rollbackErr) {
+        console.error('Error en rollback:', rollbackErr.message);
+      }
+      
       res.status(500).json({ message: 'Error en el servidor' });
     }
   },

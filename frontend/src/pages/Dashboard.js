@@ -9,6 +9,7 @@ import AdminReportsModal from "../components/AdminReportsModal";
 import MapDesigner from "../components/MapDesigner";
 import MapViewer from "../components/MapViewer";
 import AdminUsersModal from "../components/AdminUsersModal";
+import ParcelImagesModal from "../components/ParcelImagesModal";
 import tomatoImage from '../assets/images/tomato.png';
 import ParcelMap from "../components/ParcelMap";
 
@@ -32,6 +33,7 @@ const Dashboard = ({ updateAuthStatus }) => {
   const [adminModal, setAdminModal] = useState(null);
   const [showMapDesigner, setShowMapDesigner] = useState(false);
   const [showMapViewer, setShowMapViewer] = useState(false);
+  const [showImagesModal, setShowImagesModal] = useState(false);
   
   const detectionIntervalRef = useRef(null);
   const detectionTimeoutRef = useRef(null);
@@ -595,6 +597,14 @@ const Dashboard = ({ updateAuthStatus }) => {
               <i className="fa fa-fire"></i> Ver Saturación de Agua
             </button>
 
+            <button
+              className="action-button transparent-button"
+              onClick={() => setShowImagesModal(true)}
+              disabled={!currentParcel}
+            >
+              <i className="fa fa-camera"></i> Ver Fotos de {currentParcel?.name || 'Parcela'}
+            </button>
+
           </div>
 
           {userRole === 2 && (
@@ -700,6 +710,13 @@ const Dashboard = ({ updateAuthStatus }) => {
           </div>
         </div>
       )}
+
+      {/* Modal de Imágenes */}
+      <ParcelImagesModal
+        isOpen={showImagesModal}
+        closeModal={() => setShowImagesModal(false)}
+        parcel={currentParcel}
+      />
 
       {/* Modales de Administración */}
       {adminModal === 'reports' && (

@@ -42,3 +42,6 @@ Thumbs.db
 coverage/
 .nyc_output/
 
+# Uploads (imágenes subidas por usuarios)
+backend/uploads/
+
