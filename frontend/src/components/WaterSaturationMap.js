@@ -40,15 +40,26 @@ const WaterSaturationMap = ({ onClose, parcels = [] }) => {
   const fetchSensors = async () => {
     try {
       const token = localStorage.getItem('authToken');
+      if (!token) {
+        console.log('No hay token de autenticación');
+        return;
+      }
+
       const response = await fetch(`${API_BASE_URL}/sensors`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
       
       if (response.ok) {
         const data = await response.json();
+        console.log('Sensores obtenidos:', data);
         setSensors(data);
+      } else {
+        console.error('Error en respuesta de sensores:', response.status, response.statusText);
+        const errorData = await response.text();
+        console.error('Detalles del error:', errorData);
       }
     } catch (error) {
       console.error('Error al obtener sensores:', error);

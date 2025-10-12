@@ -1,11 +1,14 @@
 .saturation-grid-container {
   padding: 20px;
-  min-height: 100vh;
+  max-height: 95vh;
+  overflow-y: auto;
   font-family: 'Arial', sans-serif;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .saturation-grid-container::before {
@@ -39,21 +42,28 @@
 }
 
 .back-button {
-  padding: 10px 15px;
-  background-color: #3498db;
+  padding: 12px 20px;
+  background-color: #e74c3c;
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
   font-weight: bold;
-  transition: background-color 0.3s;
+  font-size: 14px;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  margin-bottom: 20px;
 }
 
 .back-button:hover {
-  background-color: #2980b9;
+  background-color: #c0392b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
 }
 
 .heatmap-container {
