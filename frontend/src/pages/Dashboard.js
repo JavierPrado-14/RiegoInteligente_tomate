@@ -208,31 +208,28 @@ const Dashboard = ({ updateAuthStatus }) => {
     }
   }, [selectedParcelId]);
 
-  // Simulación de detección y actualización de humedad (auto-stop configurable)
+  // Simulación de detección de humedad (versión profesional con animación)
   useEffect(() => {
     if (!isHumidityDetecting || !selectedParcelId) return;
 
     const selectedAtStart = parcels.find(p => p.id === selectedParcelId);
     const selectedName = selectedAtStart?.name || `Parcela ${selectedParcelId}`;
 
-    detectionIntervalRef.current = setInterval(() => {
-      const newHumidity = Math.floor(Math.random() * 100);
-      latestHumidityRef.current = newHumidity;
-      // Actualización optimista en el frontend para una respuesta visual rápida
-      setParcels(currentParcels =>
-        currentParcels.map(p =>
-          p.id === selectedParcelId ? { ...p, humidity: newHumidity } : p
-        )
-      );
-    }, 2000);
+    // Generar la humedad final que se mostrará después de 10 segundos
+    const finalHumidity = Math.floor(Math.random() * 100);
+    latestHumidityRef.current = finalHumidity;
 
-    // Auto detención tras 10 segundos SIN reiniciarse
+    // Auto detención tras 10 segundos - SOLO entonces actualizar la humedad
     detectionTimeoutRef.current = setTimeout(() => {
       setIsHumidityDetecting(false);
-      if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
-      }
-      const finalHumidity = latestHumidityRef.current;
+      
+      // ACTUALIZAR LA HUMEDAD SOLO AL FINAL
+      setParcels(currentParcels =>
+        currentParcels.map(p =>
+          p.id === selectedParcelId ? { ...p, humidity: finalHumidity } : p
+        )
+      );
+      
       if (finalHumidity <= 35) {
         setAlertMessage("Parcela deshidratada, regar ahora.");
         setAlertType("warning");
@@ -240,6 +237,7 @@ const Dashboard = ({ updateAuthStatus }) => {
         setAlertMessage("Parcela hidratada, buen trabajo.");
         setAlertType("success");
       }
+      
       // Registrar lectura al auto-detener
       try {
         const payload = {
@@ -318,6 +316,7 @@ const Dashboard = ({ updateAuthStatus }) => {
       setAlertType("success");
     }, 5000);
   };
+
 
   // --- RIEGO PROGRAMADO EN TIEMPO REAL ---
   const calcularLitrosSegunHumedad = (humidity) => {
@@ -553,14 +552,29 @@ const Dashboard = ({ updateAuthStatus }) => {
           <div className="humidity-container">
             <h2>Humedad del suelo en {currentParcel?.name || 'N/A'}: {currentParcel?.humidity || 0}%</h2>
             {isHumidityDetecting && (
-              <div className="detection-info">
-                <p>Detectando humedad... (10 segundos)</p>
+              <div className="detection-loading">
+                <div className="sensor-animation">
+                  <div className="sensor-waves">
+                    <div className="wave wave-1"></div>
+                    <div className="wave wave-2"></div>
+                    <div className="wave wave-3"></div>
+                  </div>
+                  <div className="sensor-icon">
+                    <i className="fa fa-podcast"></i>
+                  </div>
+                </div>
+                <p className="detection-text">
+                  <i className="fa fa-spinner fa-pulse"></i> Analizando sensor de humedad del suelo...
+                </p>
+                <div className="progress-bar-container">
+                  <div className="progress-bar"></div>
+                </div>
               </div>
             )}
           </div>
 
           {alertMessage && (
-            <div className={`alert ${alertType === "warning" ? "alert-warning blinking" : "alert-success surprise"}`} style={{maxWidth: "100%"}}>
+            <div className={`alert ${alertType === "warning" ? "alert-warning blinking" : alertType === "info" ? "alert-info" : "alert-success surprise"}`} style={{maxWidth: "100%"}}>
               <p>{alertMessage}</p>
             </div>
           )}
@@ -667,12 +681,6 @@ const Dashboard = ({ updateAuthStatus }) => {
                   onClick={handleDeleteParcel}
                 >
                   <i className="fa fa-trash"></i> Eliminar Parcela
-                </button>
-                <button 
-                  className="action-button transparent-button"
-                  onClick={() => setShowMapViewer(true)}
-                >
-                  <i className="fa fa-eye"></i> Ver Mapa de Parcelas
                 </button>
                 <button 
                   className="action-button transparent-button"

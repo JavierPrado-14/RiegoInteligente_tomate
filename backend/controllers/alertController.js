@@ -1,45 +1,142 @@
 // backend/controllers/alertController.js
 const { Client } = require('pg');
 const sqlConfig = require('../config/sqlConfig');
-const { sendDryParcelAlert, sendCustomSMS, validatePhoneNumber } = require('../services/smsService');
+const { sendDryParcelAlert, sendCustomEmail, validateEmail } = require('../services/emailService');
 
 /**
  * Verifica las parcelas secas y envía alertas automáticas (versión interna)
+ * Agrupa parcelas por usuario y envía UN correo con todas sus parcelas secas
  */
 const checkAndSendDryParcelAlertsInternal = async () => {
   try {
     const client = new Client(sqlConfig);
     await client.connect();
 
-    // Buscar parcelas con humedad menor al 20% (muy secas)
-    const result = await client.query(`
-      SELECT p.id, p.name, p.humidity, p.user_id, u.nombre_usuario, u.telefono
-      FROM agroirrigate.parcels p
-      INNER JOIN agroirrigate.usuarios u ON p.user_id = u.id
-      WHERE p.humidity < 20 AND u.telefono IS NOT NULL
+    // Crear tabla de alertas enviadas si no existe (para evitar spam)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS agroirrigate.alert_history (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        parcel_id INTEGER NOT NULL,
+        sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        humidity_level INTEGER NOT NULL
+      )
     `);
 
-    await client.end();
+    // Buscar parcelas con humedad menor al 20% (muy secas)
+    // Solo enviar alerta si no se ha enviado en las últimas 24 horas
+    const result = await client.query(`
+      SELECT p.id, p.name, p.humidity, p.user_id, u.nombre_usuario, u.correo
+      FROM agroirrigate.parcels p
+      INNER JOIN agroirrigate.usuarios u ON p.user_id = u.id
+      WHERE p.humidity < 20 
+        AND u.correo IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM agroirrigate.alert_history ah
+          WHERE ah.parcel_id = p.id
+            AND ah.user_id = p.user_id
+            AND ah.sent_at > NOW() - INTERVAL '24 hours'
+        )
+    `);
+
+    if (result.rows.length === 0) {
+      await client.end();
+      return {
+        success: true,
+        alertsSent: 0,
+        message: 'No hay nuevas alertas que enviar'
+      };
+    }
+
+    // Agrupar parcelas por usuario
+    const parcelasPorUsuario = {};
+    
+    result.rows.forEach(parcela => {
+      if (!parcelasPorUsuario[parcela.user_id]) {
+        parcelasPorUsuario[parcela.user_id] = {
+          nombre_usuario: parcela.nombre_usuario,
+          correo: parcela.correo,
+          parcelas: []
+        };
+      }
+      parcelasPorUsuario[parcela.user_id].parcelas.push({
+        id: parcela.id,
+        name: parcela.name,
+        humidity: parcela.humidity
+      });
+    });
 
     const alerts = [];
     
-    for (const parcela of result.rows) {
-      console.log(`Enviando alerta para parcela ${parcela.name} (${parcela.humidity}%)`);
+    // Enviar UN correo por usuario con todas sus parcelas secas
+    for (const userId in parcelasPorUsuario) {
+      const userData = parcelasPorUsuario[userId];
       
-      const alertResult = await sendDryParcelAlert(
-        parcela.user_id,
-        parcela.name,
-        parcela.humidity
-      );
+      console.log(`📧 Enviando alerta a ${userData.nombre_usuario} (${userData.correo}) - ${userData.parcelas.length} parcela(s) seca(s)`);
       
-      alerts.push({
-        parcela: parcela.name,
-        usuario: parcela.nombre_usuario,
-        telefono: parcela.telefono,
-        humedad: parcela.humidity,
-        ...alertResult
-      });
+      // Si es solo una parcela, enviar el correo individual
+      if (userData.parcelas.length === 1) {
+        const parcela = userData.parcelas[0];
+        const alertResult = await sendDryParcelAlert(
+          userId,
+          parcela.name,
+          parcela.humidity
+        );
+        
+        if (alertResult.success) {
+          // Registrar alerta enviada
+          await client.query(
+            'INSERT INTO agroirrigate.alert_history (user_id, parcel_id, humidity_level) VALUES ($1, $2, $3)',
+            [userId, parcela.id, parcela.humidity]
+          );
+        }
+        
+        alerts.push({
+          usuario: userData.nombre_usuario,
+          email: userData.correo,
+          parcelas: [parcela],
+          ...alertResult
+        });
+      } else {
+        // Múltiples parcelas: enviar correo agrupado
+        const parcelasTexto = userData.parcelas.map(p => `- ${p.name}: ${p.humidity}%`).join('\n');
+        
+        const subject = `🚨 Alerta: ${userData.parcelas.length} parcelas necesitan riego`;
+        const message = `
+Hola ${userData.nombre_usuario},
+
+Tienes ${userData.parcelas.length} parcelas que están muy secas y necesitan riego urgente:
+
+${parcelasTexto}
+
+Es momento de regar para mantener tus plantas saludables.
+
+🌱 Sistema de Riego Inteligente AgroIrrigate
+🇬🇹 Guatemala
+        `.trim();
+        
+        const alertResult = await sendCustomEmail(userData.correo, subject, message);
+        
+        if (alertResult.success) {
+          // Registrar alertas enviadas para todas las parcelas
+          for (const parcela of userData.parcelas) {
+            await client.query(
+              'INSERT INTO agroirrigate.alert_history (user_id, parcel_id, humidity_level) VALUES ($1, $2, $3)',
+              [userId, parcela.id, parcela.humidity]
+            );
+          }
+        }
+        
+        alerts.push({
+          usuario: userData.nombre_usuario,
+          email: userData.correo,
+          parcelas: userData.parcelas,
+          ...alertResult
+        });
+      }
     }
+
+    await client.end();
 
     return {
       success: true,
@@ -92,7 +189,7 @@ const sendManualAlert = async (req, res) => {
 
     // Obtener información de la parcela y su propietario
     const result = await client.query(`
-      SELECT p.id, p.name, p.humidity, p.user_id, u.nombre_usuario, u.telefono
+      SELECT p.id, p.name, p.humidity, p.user_id, u.nombre_usuario, u.correo
       FROM agroirrigate.parcels p
       INNER JOIN agroirrigate.usuarios u ON p.user_id = u.id
       WHERE p.id = $1
@@ -106,9 +203,9 @@ const sendManualAlert = async (req, res) => {
 
     const parcela = result.rows[0];
 
-    if (!parcela.telefono) {
+    if (!parcela.correo) {
       return res.status(400).json({ 
-        message: 'El propietario de esta parcela no tiene número de teléfono configurado' 
+        message: 'El propietario de esta parcela no tiene correo electrónico configurado' 
       });
     }
 
@@ -121,9 +218,9 @@ const sendManualAlert = async (req, res) => {
 
     if (alertResult.success) {
       res.json({
-        message: 'Alerta enviada exitosamente',
+        message: 'Alerta enviada exitosamente por correo',
         parcela: parcela.name,
-        telefono: parcela.telefono,
+        email: parcela.correo,
         humedad: parcela.humidity
       });
     } else {
@@ -143,16 +240,16 @@ const sendManualAlert = async (req, res) => {
 };
 
 /**
- * Actualiza el número de teléfono de un usuario
+ * Actualiza el correo electrónico de un usuario
  */
-const updateUserPhone = async (req, res) => {
+const updateUserEmail = async (req, res) => {
   const { userId } = req.params;
-  const { telefono } = req.body;
+  const { correo } = req.body;
 
-  // Validar formato del teléfono
-  if (!validatePhoneNumber(telefono)) {
+  // Validar formato del correo
+  if (!validateEmail(correo)) {
     return res.status(400).json({ 
-      message: 'Formato de teléfono inválido. Use el formato internacional (+1234567890)' 
+      message: 'Formato de correo electrónico inválido' 
     });
   }
 
@@ -161,8 +258,8 @@ const updateUserPhone = async (req, res) => {
     await client.connect();
 
     const result = await client.query(
-      'UPDATE agroirrigate.usuarios SET telefono = $1 WHERE id = $2 RETURNING id, nombre_usuario, telefono',
-      [telefono, userId]
+      'UPDATE agroirrigate.usuarios SET correo = $1 WHERE id = $2 RETURNING id, nombre_usuario, correo',
+      [correo, userId]
     );
 
     await client.end();
@@ -172,23 +269,23 @@ const updateUserPhone = async (req, res) => {
     }
 
     res.json({
-      message: 'Número de teléfono actualizado exitosamente',
+      message: 'Correo electrónico actualizado exitosamente',
       user: result.rows[0]
     });
 
   } catch (error) {
-    console.error('Error al actualizar teléfono:', error);
+    console.error('Error al actualizar correo:', error);
     res.status(500).json({ 
-      message: 'Error al actualizar teléfono',
+      message: 'Error al actualizar correo',
       error: error.message 
     });
   }
 };
 
 /**
- * Obtiene el número de teléfono de un usuario
+ * Obtiene el correo electrónico de un usuario
  */
-const getUserPhone = async (req, res) => {
+const getUserEmail = async (req, res) => {
   const { userId } = req.params;
 
   try {
@@ -196,7 +293,7 @@ const getUserPhone = async (req, res) => {
     await client.connect();
 
     const result = await client.query(
-      'SELECT id, nombre_usuario, telefono FROM agroirrigate.usuarios WHERE id = $1',
+      'SELECT id, nombre_usuario, correo, telefono FROM agroirrigate.usuarios WHERE id = $1',
       [userId]
     );
 
@@ -211,9 +308,9 @@ const getUserPhone = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error al obtener teléfono:', error);
+    console.error('Error al obtener información del usuario:', error);
     res.status(500).json({ 
-      message: 'Error al obtener teléfono',
+      message: 'Error al obtener información del usuario',
       error: error.message 
     });
   }
@@ -223,6 +320,6 @@ module.exports = {
   checkAndSendDryParcelAlerts,
   checkAndSendDryParcelAlertsInternal,
   sendManualAlert,
-  updateUserPhone,
-  getUserPhone
+  updateUserEmail,
+  getUserEmail
 };

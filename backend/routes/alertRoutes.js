@@ -4,21 +4,21 @@ const router = express.Router();
 const { 
   checkAndSendDryParcelAlerts,
   sendManualAlert,
-  updateUserPhone,
-  getUserPhone
+  updateUserEmail,
+  getUserEmail
 } = require('../controllers/alertController');
 const { auth } = require('../middleware/auth');
 
-// Ruta para verificar y enviar alertas automáticas (endpoint interno)
+// Ruta para verificar y enviar alertas automáticas por correo (endpoint interno)
 router.post('/check-dry-parcels', checkAndSendDryParcelAlerts);
 
 // Ruta para enviar alerta manual a una parcela específica (requiere autenticación)
 router.post('/send/:parcelaId', auth, sendManualAlert);
 
-// Ruta para actualizar número de teléfono del usuario (requiere autenticación)
-router.put('/phone/:userId', auth, updateUserPhone);
+// Ruta para actualizar correo electrónico del usuario (requiere autenticación)
+router.put('/email/:userId', auth, updateUserEmail);
 
-// Ruta para obtener número de teléfono del usuario (requiere autenticación)
-router.get('/phone/:userId', auth, getUserPhone);
+// Ruta para obtener información del usuario incluyendo correo (requiere autenticación)
+router.get('/email/:userId', auth, getUserEmail);
 
 module.exports = router;

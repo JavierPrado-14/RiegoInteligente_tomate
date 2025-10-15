@@ -9,7 +9,7 @@ let monitorInterval = null;
  * Inicia el monitor automático de alertas
  */
 const startAlertMonitor = () => {
-  console.log('🔔 Iniciando monitor de alertas SMS...');
+  console.log('📧 Iniciando monitor de alertas por correo electrónico...');
   
   // Verificar inmediatamente al iniciar
   checkAndSendDryParcelAlertsInternal();
@@ -21,7 +21,7 @@ const startAlertMonitor = () => {
     const result = await checkAndSendDryParcelAlertsInternal();
     
     if (result.success && result.alertsSent > 0) {
-      console.log(`📱 Se enviaron ${result.alertsSent} alertas SMS`);
+      console.log(`✉️ Se enviaron ${result.alertsSent} alertas por correo electrónico`);
     } else {
       console.log('✅ Todas las parcelas tienen humedad adecuada');
     }

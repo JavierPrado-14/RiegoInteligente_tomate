@@ -337,7 +337,13 @@ const WaterSaturationMap = ({ onClose, parcels = [] }) => {
                       <div className="info-row">
                         <span className="label">Última lectura:</span>
                         <span className="value">
-                          {new Date(sensor.last_reading).toLocaleTimeString('es-GT')}
+                          {sensor.last_reading ? 
+                            new Date(sensor.last_reading).toLocaleString('es-GT', {
+                              dateStyle: 'short',
+                              timeStyle: 'medium'
+                            }) : 
+                            'Nunca'
+                          }
                         </span>
                       </div>
                     </div>

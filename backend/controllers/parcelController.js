@@ -1,6 +1,7 @@
 // backend/controllers/parcelController.js
 const { Client } = require("pg");
 const sqlConfig = require("../config/sqlConfig");
+const { getGuatemalaTimeISO } = require("../utils/timeHelper");
 
 // SQL para crear el esquema y la tabla agroirrigate.parcels si no existen
 const ensureParcelsTableSQL = `
@@ -157,6 +158,7 @@ const parcelController = {
     try {
       const client = new Client(sqlConfig);
       await client.connect();
+      await client.query('BEGIN'); // Iniciar transacción
       
       const result = await client.query(
         'UPDATE agroirrigate.parcels SET humidity = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
@@ -164,13 +166,33 @@ const parcelController = {
       );
 
       if (result.rowCount === 0) {
+        await client.query('ROLLBACK'); // Revertir si la parcela no se encuentra
+        await client.end();
         return res.status(404).json({ message: 'Parcela no encontrada' });
       }
 
-      res.json(result.rows[0]);
+      // Actualizar la última lectura del sensor asociado a esta parcela con hora de Guatemala
+      const guatemalaTime = getGuatemalaTimeISO();
+      await client.query(
+        `UPDATE agroirrigate.sensors 
+         SET last_reading = $1 
+         WHERE parcel_id = $2`,
+        [guatemalaTime, id]
+      );
+
+      await client.query('COMMIT'); // Confirmar transacción
+      console.log(`📊 Humedad actualizada para parcela ${id}: ${humidity}% - Sensor actualizado`);
+      
+      res.json(result.rows[0]); // Devolver la parcela actualizada
       await client.end();
     } catch (err) {
-      console.error('Error al actualizar humedad:', err.message);
+      try {
+        await client.query('ROLLBACK'); // Revertir en caso de error
+        await client.end();
+      } catch (rollbackErr) {
+        console.error('Error en rollback:', rollbackErr.message);
+      }
+      console.error('Error al actualizar humedad y sensor:', err.message);
       res.status(500).json({ message: 'Error en el servidor' });
     }
   }

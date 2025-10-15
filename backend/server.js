@@ -60,7 +60,11 @@ const PORT = 4000;
 server.listen(PORT, () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
   
-  // Iniciar monitor de alertas SMS
+  // Verificar configuración de correo electrónico
+  const { verifyEmailService } = require('./services/emailService');
+  verifyEmailService();
+  
+  // Iniciar monitor de alertas por correo electrónico
   const { startAlertMonitor } = require('./services/alertMonitor');
   startAlertMonitor();
 });

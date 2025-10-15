@@ -20,8 +20,7 @@
     "multer": "^2.0.2",
     "pg": "^8.16.3",
     "react-heatmap-grid": "^0.9.1",
-    "socket.io": "^4.8.1",
-    "twilio": "^5.10.2"
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
