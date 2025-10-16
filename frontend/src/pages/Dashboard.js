@@ -455,6 +455,7 @@ const Dashboard = ({ updateAuthStatus }) => {
 
         const newParcel = await response.json();
         setParcels(currentParcels => [...currentParcels, newParcel]);
+        setAllParcels(currentAllParcels => [...currentAllParcels, newParcel]);
         setSelectedParcelId(newParcel.id);
         setAlertMessage("Parcela agregada correctamente.");
         setAlertType("success");
@@ -469,6 +470,7 @@ const Dashboard = ({ updateAuthStatus }) => {
           user_id: 1
         };
         setParcels(currentParcels => [...currentParcels, newParcel]);
+        setAllParcels(currentAllParcels => [...currentAllParcels, newParcel]);
         setSelectedParcelId(newParcel.id);
         setAlertMessage("Parcela agregada localmente (modo demostración).");
         setAlertType("warning");
@@ -499,7 +501,9 @@ const Dashboard = ({ updateAuthStatus }) => {
         }
         
         const newParcels = parcels.filter(p => p.id !== selectedParcelId);
+        const newAllParcels = allParcels.filter(p => p.id !== selectedParcelId);
         setParcels(newParcels);
+        setAllParcels(newAllParcels);
         setSelectedParcelId(newParcels.length > 0 ? newParcels[0].id : null);
         setAlertMessage("Parcela eliminada correctamente.");
         setAlertType("success");
@@ -508,7 +512,9 @@ const Dashboard = ({ updateAuthStatus }) => {
         console.error("Error al eliminar parcela:", error);
         // En caso de error, eliminar localmente
         const newParcels = parcels.filter(p => p.id !== selectedParcelId);
+        const newAllParcels = allParcels.filter(p => p.id !== selectedParcelId);
         setParcels(newParcels);
+        setAllParcels(newAllParcels);
         setSelectedParcelId(newParcels.length > 0 ? newParcels[0].id : null);
         setAlertMessage("Parcela eliminada localmente (modo demostración).");
         setAlertType("warning");
