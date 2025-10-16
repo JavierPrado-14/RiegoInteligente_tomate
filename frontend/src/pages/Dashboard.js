@@ -132,6 +132,7 @@ const Dashboard = ({ updateAuthStatus }) => {
             { id: 3, name: "Parcela #3", humidity: 34, user_id: 1 }
           ];
           setParcels(defaultParcels);
+          setAllParcels(defaultParcels);
           if (defaultParcels.length > 0) {
             setSelectedParcelId(defaultParcels[0].id);
           }
@@ -165,6 +166,7 @@ const Dashboard = ({ updateAuthStatus }) => {
         { id: 3, name: "Parcela #3", humidity: 34, user_id: 1 }
       ];
       setParcels(defaultParcels);
+      setAllParcels(defaultParcels);
       if (defaultParcels.length > 0) {
         setSelectedParcelId(defaultParcels[0].id);
       }
