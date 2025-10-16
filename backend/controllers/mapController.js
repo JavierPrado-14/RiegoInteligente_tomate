@@ -197,7 +197,7 @@ const getMapById = async (req, res) => {
 };
 
 /**
- * Eliminar un mapa
+ * Eliminar un mapa y sus parcelas asociadas
  */
 const deleteMap = async (req, res) => {
   const { id } = req.params;
@@ -206,27 +206,85 @@ const deleteMap = async (req, res) => {
   
   try {
     await client.connect();
+    await client.query('BEGIN');
 
-    // Eliminar solo si pertenece al usuario
-    const result = await client.query(`
-      DELETE FROM agroirrigate.maps
+    // 1. Obtener información del mapa para verificar permisos
+    const mapResult = await client.query(`
+      SELECT id, map_name
+      FROM agroirrigate.maps
       WHERE id = $1 AND user_id = $2
-      RETURNING id, map_name
     `, [id, userId]);
 
-    await client.end();
-
-    if (result.rows.length === 0) {
+    if (mapResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      await client.end();
       return res.status(404).json({ 
         message: 'Mapa no encontrado o no tienes permisos' 
       });
     }
 
+    const mapName = mapResult.rows[0].map_name;
+
+    // 2. Obtener todas las parcelas asociadas al mapa
+    const parcelsResult = await client.query(`
+      SELECT p.id, p.name
+      FROM agroirrigate.map_parcels mp
+      INNER JOIN agroirrigate.parcels p ON mp.parcel_id = p.id
+      WHERE mp.map_id = $1
+    `, [id]);
+
+    const parcelsToDelete = parcelsResult.rows;
+    console.log(`🗑️ Eliminando mapa "${mapName}" (ID: ${id}) con ${parcelsToDelete.length} parcelas asociadas`);
+    console.log(`📋 Parcelas a eliminar:`, parcelsToDelete.map(p => `${p.name} (ID: ${p.id})`));
+
+    // 3. Eliminar sensores asociados a las parcelas del mapa
+    for (const parcel of parcelsToDelete) {
+      await client.query(`
+        DELETE FROM agroirrigate.sensors 
+        WHERE parcel_id = $1
+      `, [parcel.id]);
+      console.log(`📡 Sensor eliminado para parcela "${parcel.name}" (ID: ${parcel.id})`);
+    }
+
+    // 4. Eliminar las parcelas asociadas al mapa
+    for (const parcel of parcelsToDelete) {
+      await client.query(`
+        DELETE FROM agroirrigate.parcels 
+        WHERE id = $1
+      `, [parcel.id]);
+      console.log(`🌱 Parcela "${parcel.name}" (ID: ${parcel.id}) eliminada`);
+    }
+
+    // 5. Eliminar las relaciones del mapa (esto se hace automáticamente por CASCADE, pero por seguridad)
+    await client.query(`
+      DELETE FROM agroirrigate.map_parcels 
+      WHERE map_id = $1
+    `, [id]);
+
+    // 6. Eliminar el mapa
+    await client.query(`
+      DELETE FROM agroirrigate.maps
+      WHERE id = $1
+    `, [id]);
+
+    await client.query('COMMIT');
+    await client.end();
+
+    console.log(`✅ Mapa "${mapName}" y ${parcelsToDelete.length} parcelas eliminadas exitosamente`);
+
     res.json({ 
-      message: `Mapa "${result.rows[0].map_name}" eliminado exitosamente` 
+      message: `Mapa "${mapName}" y ${parcelsToDelete.length} parcelas eliminadas exitosamente`,
+      deletedParcels: parcelsToDelete.length
     });
   } catch (error) {
-    console.error('Error al eliminar mapa:', error);
+    console.error('❌ Error al eliminar mapa:', error);
+    console.error('❌ Stack trace:', error.stack);
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('❌ Error en rollback:', rollbackError);
+    }
+    await client.end();
     res.status(500).json({ 
       message: 'Error al eliminar mapa',
       error: error.message 

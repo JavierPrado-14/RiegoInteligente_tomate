@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './MapViewer.css';
 
-const MapViewer = ({ onClose }) => {
+const MapViewer = ({ onClose, onMapDeleted }) => {
   const [savedMaps, setSavedMaps] = useState([]);
   const [selectedMap, setSelectedMap] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
@@ -112,6 +112,11 @@ const MapViewer = ({ onClose }) => {
         if (selectedMap && selectedMap.id === mapId) {
           setSelectedMap(null);
           setViewMode('list');
+        }
+        
+        // Notificar al Dashboard que se eliminó un mapa (y sus parcelas)
+        if (onMapDeleted) {
+          onMapDeleted();
         }
         
         alert(`Mapa "${mapName}" eliminado exitosamente`);

@@ -779,7 +779,17 @@ const Dashboard = ({ updateAuthStatus }) => {
       
       {showMapViewer && (
         <MapViewer 
-          onClose={() => setShowMapViewer(false)}
+          onClose={() => {
+            setShowMapViewer(false);
+            // Refrescar mapas después de cerrar el visor
+            fetchMaps();
+          }}
+          onMapDeleted={() => {
+            // Cuando se elimina un mapa, también actualizar parcelas
+            console.log('🗑️ Mapa eliminado, actualizando parcelas...');
+            fetchParcels();
+            fetchMaps();
+          }}
         />
       )}
       
