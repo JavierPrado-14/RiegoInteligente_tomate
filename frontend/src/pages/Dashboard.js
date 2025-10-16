@@ -303,9 +303,31 @@ const Dashboard = ({ updateAuthStatus }) => {
   const handleWaterPlants = () => {
     if (!currentParcel) return;
     setIsWatering(true);
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsWatering(false);
       const updatedHumidity = 90;
+      
+      try {
+        // Actualizar humedad en la base de datos
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/parcels/${selectedParcelId}/humidity`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ humidity: updatedHumidity })
+        });
+
+        if (response.ok) {
+          console.log(`💧 Humedad actualizada en parcela ${selectedParcelId}: ${updatedHumidity}%`);
+        } else {
+          console.error('Error al actualizar humedad en BD');
+        }
+      } catch (error) {
+        console.error('Error al actualizar humedad:', error);
+      }
+
       // Actualizamos la humedad localmente
       setParcels(currentParcels =>
         currentParcels.map(p =>
