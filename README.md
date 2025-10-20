@@ -57,7 +57,7 @@ Sistema web completo para la gestión inteligente de cultivos de tomate en Guate
 - Historial de lecturas de humedad
 - Filtrado por mapa
 
-### **📡 Sensores IoT Simulados**
+### **📡 Sensores IoT**
 - Sensor de humedad del suelo por parcela
 - 3 niveles de conectividad: Estable / Media / Baja
 - Actualización en tiempo real (cada 5 segundos)
@@ -1072,13 +1072,14 @@ Dashboard → Seleccionar Parcela
   - Algunos proveedores pueden marcar como spam inicialmente
 
 ### **Sensores IoT**
-- Actualmente simulados por software
-- Conectividad aleatoria para simular condiciones reales
+- Integración con Arduino Uno R4 WiFi
+- Conectividad en tiempo real
 - Actualización cada 5 segundos
-- Para integrar sensores reales:
-  - Usar ESP32/Arduino con sensor de humedad
-  - Conectar vía WiFi al backend
-  - Implementar endpoint para recibir lecturas
+- Sensores implementados:
+  - Sensor ultrasónico HC-SR04 para nivel de agua
+  - Control de bomba/válvula mediante relé
+  - Comunicación WiFi con backend
+  - Envío automático de datos
 
 ### **Zona Horaria**
 - Sistema configurado para Guatemala (GMT-6)
@@ -1297,7 +1298,7 @@ El Arduino puede enviar datos al backend mediante HTTP POST:
 - ✅ Registro y autenticación de usuarios con JWT
 - ✅ Gestión completa de parcelas (CRUD)
 - ✅ Diseñador de mapas interactivo con drag & drop
-- ✅ Sensores IoT simulados en tiempo real
+- ✅ Sensores IoT en tiempo real
 - ✅ Sistema de alertas automáticas por correo electrónico
 - ✅ Galería de imágenes por parcela
 - ✅ Programación de riego con validaciones

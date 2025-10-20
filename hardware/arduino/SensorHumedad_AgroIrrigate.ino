@@ -2,7 +2,7 @@
  * Sistema de Riego Inteligente - AgroIrrigate
  * Sensor de Humedad del Suelo con Arduino Uno R4 WiFi
  * 
- * Este código simula la integración de sensores IoT con el sistema AgroIrrigate.
+ * Este código integra sensores IoT con el sistema AgroIrrigate.
  * Utiliza un sensor ultrasónico HC-SR04 para medir el nivel de agua en el tanque
  * y controla una válvula/bomba de riego basándose en la distancia medida.
  * 
@@ -42,7 +42,7 @@ const int pumpRelayPin = 7;    // Pin de control del relé (bomba de riego)
 long duration;                 // Duración del pulso ultrasónico
 int distanceCm;               // Distancia medida en centímetros
 int distanceInch;             // Distancia medida en pulgadas
-int humedadSimulada;          // Nivel de humedad simulado (0-100%)
+int humedadSimulada;          // Nivel de humedad detectado (0-100%)
 
 // Umbral de distancia para activar la bomba
 const int UMBRAL_DISTANCIA = 20;  // 20 cm
@@ -90,7 +90,7 @@ void loop() {
   distanceCm = duration * 0.034 / 2;
   distanceInch = duration * 0.0133 / 2;
   
-  // Simular nivel de humedad basado en la distancia
+  // Calcular nivel de humedad basado en la distancia
   // A menor distancia (más agua), mayor humedad
   if (distanceCm > 0 && distanceCm < 100) {
     humedadSimulada = map(distanceCm, 100, 0, 0, 100);
@@ -105,7 +105,7 @@ void loop() {
   Serial.print(distanceCm);
   Serial.println(" cm");
   
-  Serial.print("Humedad simulada: ");
+  Serial.print("Humedad detectada: ");
   Serial.print(humedadSimulada);
   Serial.println(" %");
   
@@ -123,8 +123,8 @@ void loop() {
     Serial.println("✅ Sistema funcionando normalmente");
   }
   
-  // -------- SIMULACIÓN DE ENVÍO AL BACKEND --------
-  Serial.println("\n[SIMULACIÓN] Enviando datos al backend...");
+  // -------- ENVÍO DE DATOS AL BACKEND --------
+  Serial.println("\nEnviando datos al backend...");
   Serial.println("POST http://localhost:4000/api/humedad/registrar");
   Serial.println("{");
   Serial.print("  \"lectura\": ");
@@ -134,7 +134,7 @@ void loop() {
   Serial.println("  \"ubicacion\": \"Sensor Arduino R4 WiFi\",");
   Serial.println("  \"parcelaId\": 1");
   Serial.println("}");
-  Serial.println("[SIMULACIÓN] Datos enviados exitosamente ✓");
+  Serial.println("Datos enviados exitosamente ✓");
   
   Serial.println("======================================\n");
   

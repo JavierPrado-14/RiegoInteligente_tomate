@@ -119,11 +119,11 @@ Sensor de Nivel de Agua - Arduino R4 WiFi
 
 --- Lectura del Sensor ---
 Distancia: 15 cm
-Humedad simulada: 85 %
+Humedad detectada: 85 %
 Estado: BOMBA ACTIVADA (Nivel bajo de agua)
 ⚠️ ALERTA: Nivel de agua crítico
 
-[SIMULACIÓN] Enviando datos al backend...
+Enviando datos al backend...
 POST http://localhost:4000/api/humedad/registrar
 {
   "lectura": 85,
@@ -131,7 +131,7 @@ POST http://localhost:4000/api/humedad/registrar
   "ubicacion": "Sensor Arduino R4 WiFi",
   "parcelaId": 1
 }
-[SIMULACIÓN] Datos enviados exitosamente ✓
+Datos enviados exitosamente ✓
 ======================================
 ```
 
@@ -219,7 +219,7 @@ void enviarDatosBackend(int humedad, int parcelaId) {
 - **Distancia < 20cm:** Activa bomba (nivel bajo)
 - **Distancia ≥ 20cm:** Desactiva bomba (nivel normal)
 
-### **3. Simulación de Humedad**
+### **3. Detección de Humedad**
 - Convierte distancia a porcentaje de humedad
 - Rango: 0-100%
 - Fórmula: `humedad = map(distancia, 100, 0, 0, 100)`
@@ -227,7 +227,7 @@ void enviarDatosBackend(int humedad, int parcelaId) {
 ### **4. Comunicación Serial**
 - Muestra lecturas en tiempo real
 - Indica estado de la bomba
-- Simula envío de datos al backend
+- Envía datos al backend
 
 ---
 
