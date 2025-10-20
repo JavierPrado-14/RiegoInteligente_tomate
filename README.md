@@ -275,6 +275,12 @@ RiegoInteligente_tomate/
 │   │   └── index.css
 │   └── package.json
 │
+├── hardware/                      # 🆕 Integración IoT
+│   ├── arduino/
+│   │   ├── SensorHumedad_AgroIrrigate.ino  # Código Arduino
+│   │   └── DIAGRAMA_CIRCUITO.txt           # Diagramas ASCII
+│   └── README.md                  # Documentación de hardware
+│
 └── README.md
 ```
 
@@ -1228,6 +1234,63 @@ npm install --legacy-peer-deps
 
 ---
 
+## 🔌 Integración de Hardware IoT
+
+### **Arduino Uno R4 WiFi**
+
+El proyecto incluye código de ejemplo para integración con sensores IoT reales utilizando Arduino Uno R4 WiFi.
+
+**Ubicación:** `hardware/arduino/`
+
+**Archivos incluidos:**
+- `SensorHumedad_AgroIrrigate.ino` - Código Arduino completo
+- `DIAGRAMA_CIRCUITO.txt` - Diagramas de conexión detallados
+- `README.md` - Documentación completa de hardware
+
+### **Componentes de Hardware:**
+
+| Componente | Función |
+|------------|---------|
+| Arduino Uno R4 WiFi | Microcontrolador con WiFi integrado |
+| Sensor HC-SR04 | Medición de nivel de agua (ultrasonido) |
+| Módulo Relé 1 Canal | Control de bomba/válvula de riego |
+| Sensor DHT22 (opcional) | Temperatura y humedad ambiental |
+| Sensor Capacitivo (opcional) | Humedad del suelo |
+
+### **Funcionalidades del Hardware:**
+
+✅ **Medición automática** de nivel de agua cada 500ms  
+✅ **Control automático** de bomba según umbral de distancia  
+✅ **Simulación de humedad** basada en nivel de agua  
+✅ **Comunicación WiFi** para enviar datos al backend  
+✅ **Código documentado** en español con ejemplos  
+
+### **Integración con Backend:**
+
+El Arduino puede enviar datos al backend mediante HTTP POST:
+
+```cpp
+// Endpoint: POST /api/humedad/registrar
+{
+  "lectura": 85,              // Nivel de humedad (0-100%)
+  "fecha": "2025-10-20T10:30:00",
+  "ubicacion": "Sensor Arduino R4 WiFi",
+  "parcelaId": 1
+}
+```
+
+### **Próximos Pasos para Hardware:**
+
+1. ⏳ Configurar WiFi con credenciales de red
+2. ⏳ Implementar HTTP Client para comunicación real
+3. ⏳ Agregar autenticación JWT
+4. ⏳ Implementar reintentos y manejo de errores
+5. ⏳ Optimizar consumo de energía
+
+**📖 Documentación completa:** Ver `hardware/README.md`
+
+---
+
 ## 🎉 Sistema Completado - Estado 100% Funcional
 
 ### **Funcionalidades Implementadas:**
@@ -1247,10 +1310,13 @@ npm install --legacy-peer-deps
 - ✅ Historial de lecturas y alertas
 - ✅ Protección de rutas y endpoints
 - ✅ Manejo de zona horaria (Guatemala GMT-6)
+- ✅ Integración con Arduino Uno R4 WiFi (código de ejemplo)
+- ✅ Documentación completa de hardware IoT
 
 ### **Tecnologías Principales:**
 - **Backend:** Node.js, Express.js, PostgreSQL, JWT, nodemailer
 - **Frontend:** React 19, React Router, CSS3
+- **Hardware:** Arduino Uno R4 WiFi, Sensores HC-SR04, DHT22, Módulo Relé
 - **DevOps:** Git, nodemon, dotenv
 
 ---
@@ -1264,6 +1330,7 @@ npm install --legacy-peer-deps
 - **Servicios:** 2 (Email, AlertMonitor)
 - **Middleware:** 1 (Autenticación JWT)
 - **Rutas Protegidas:** 90%
+- **Integración IoT:** Arduino R4 WiFi con sensores
 
 ---
 
