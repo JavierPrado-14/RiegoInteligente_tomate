@@ -397,7 +397,7 @@ const Dashboard = ({ updateAuthStatus }) => {
       );
       setAlertMessage("Parcela hidratada, buen trabajo.");
       setAlertType("success");
-    }, 5000);
+    }, 30000);
   };
 
 
