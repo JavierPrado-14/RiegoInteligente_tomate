@@ -197,6 +197,172 @@ const getMapById = async (req, res) => {
 };
 
 /**
+ * Actualizar un mapa existente
+ */
+const updateMap = async (req, res) => {
+  const { id } = req.params;
+  const { mapName, parcels } = req.body;
+  const userId = req.user.userId;
+
+  if (!mapName || !parcels || parcels.length === 0) {
+    return res.status(400).json({ 
+      message: 'Nombre del mapa y parcelas son requeridos' 
+    });
+  }
+
+  const client = new Client(sqlConfig);
+  
+  try {
+    await client.connect();
+    await client.query('BEGIN');
+
+    // 1. Verificar que el mapa pertenezca al usuario
+    const mapResult = await client.query(`
+      SELECT id, map_name
+      FROM agroirrigate.maps
+      WHERE id = $1 AND user_id = $2
+    `, [id, userId]);
+
+    if (mapResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      await client.end();
+      return res.status(404).json({ 
+        message: 'Mapa no encontrado o no tienes permisos' 
+      });
+    }
+
+    // 2. Actualizar el nombre del mapa
+    await client.query(`
+      UPDATE agroirrigate.maps 
+      SET map_name = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `, [mapName, id]);
+
+    console.log(`📍 Mapa "${mapName}" actualizado (ID: ${id})`);
+
+    // 3. Obtener parcelas existentes del mapa
+    const existingParcelsResult = await client.query(`
+      SELECT parcel_id
+      FROM agroirrigate.map_parcels
+      WHERE map_id = $1
+    `, [id]);
+
+    const existingParcelIds = existingParcelsResult.rows.map(row => row.parcel_id);
+    const updatedParcelIds = [];
+
+    // 4. Procesar cada parcela del mapa actualizado
+    for (const parcel of parcels) {
+      let parcelId = parcel.id;
+
+      // Verificar si es un ID real de base de datos (no temporal)
+      // Los IDs temporales son generados con Date.now() y son números muy grandes (>1600000000000)
+      const isRealId = parcelId && parcelId < 1000000000000 && existingParcelIds.includes(parcelId);
+
+      // Si la parcela existe en la BD, actualizarla
+      if (isRealId) {
+        // Actualizar la parcela
+        await client.query(`
+          UPDATE agroirrigate.parcels
+          SET name = $1, humidity = $2
+          WHERE id = $3 AND user_id = $4
+        `, [parcel.name, parcel.humidity || 50, parcelId, userId]);
+
+        // Actualizar la posición en el mapa
+        await client.query(`
+          UPDATE agroirrigate.map_parcels
+          SET position_x = $1, position_y = $2, width = $3, height = $4
+          WHERE map_id = $5 AND parcel_id = $6
+        `, [parcel.x, parcel.y, parcel.width, parcel.height, id, parcelId]);
+
+        console.log(`🔄 Parcela "${parcel.name}" actualizada (ID: ${parcelId})`);
+        updatedParcelIds.push(parcelId);
+      } else {
+        // Crear nueva parcela
+        const parcelResult = await client.query(`
+          INSERT INTO agroirrigate.parcels (name, user_id, humidity)
+          VALUES ($1, $2, $3)
+          RETURNING id, name, humidity
+        `, [parcel.name, userId, parcel.humidity || 50]);
+
+        parcelId = parcelResult.rows[0].id;
+        console.log(`🌱 Nueva parcela "${parcel.name}" creada (ID: ${parcelId})`);
+
+        // Agregar la parcela al mapa
+        await client.query(`
+          INSERT INTO agroirrigate.map_parcels 
+          (map_id, parcel_id, position_x, position_y, width, height)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [id, parcelId, parcel.x, parcel.y, parcel.width, parcel.height]);
+
+        // Crear sensor para la nueva parcela
+        const connectivityOptions = ['stable', 'medium', 'low'];
+        const randomConnectivity = connectivityOptions[Math.floor(Math.random() * connectivityOptions.length)];
+        const signalStrength = randomConnectivity === 'stable' ? 90 :
+                              randomConnectivity === 'medium' ? 65 : 35;
+
+        await client.query(`
+          INSERT INTO agroirrigate.sensors 
+          (parcel_id, sensor_name, connectivity_status, signal_strength)
+          VALUES ($1, $2, $3, $4)
+        `, [parcelId, `Soil Moisture Sensor - ${parcel.name}`, randomConnectivity, signalStrength]);
+
+        console.log(`📡 Sensor creado para "${parcel.name}"`);
+        updatedParcelIds.push(parcelId);
+      }
+    }
+
+    // 5. Eliminar parcelas que ya no están en el mapa
+    const parcelsToDelete = existingParcelIds.filter(id => !updatedParcelIds.includes(id));
+    
+    for (const parcelId of parcelsToDelete) {
+      // Eliminar sensores de la parcela
+      await client.query(`
+        DELETE FROM agroirrigate.sensors 
+        WHERE parcel_id = $1
+      `, [parcelId]);
+
+      // Eliminar relación con el mapa
+      await client.query(`
+        DELETE FROM agroirrigate.map_parcels 
+        WHERE map_id = $1 AND parcel_id = $2
+      `, [id, parcelId]);
+
+      // Eliminar la parcela
+      await client.query(`
+        DELETE FROM agroirrigate.parcels 
+        WHERE id = $1
+      `, [parcelId]);
+
+      console.log(`🗑️ Parcela eliminada (ID: ${parcelId})`);
+    }
+
+    await client.query('COMMIT');
+    await client.end();
+
+    console.log(`✅ Mapa "${mapName}" actualizado con ${updatedParcelIds.length} parcelas`);
+
+    res.json({
+      message: 'Mapa actualizado exitosamente',
+      map: {
+        id: parseInt(id),
+        name: mapName,
+        parcelsCount: updatedParcelIds.length,
+        deletedParcels: parcelsToDelete.length
+      }
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    await client.end();
+    console.error('Error al actualizar mapa:', error);
+    res.status(500).json({ 
+      message: 'Error al actualizar mapa',
+      error: error.message 
+    });
+  }
+};
+
+/**
  * Eliminar un mapa y sus parcelas asociadas
  */
 const deleteMap = async (req, res) => {
@@ -296,6 +462,7 @@ module.exports = {
   saveMap,
   getMaps,
   getMapById,
+  updateMap,
   deleteMap
 };
 
