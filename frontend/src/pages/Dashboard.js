@@ -644,7 +644,7 @@ const Dashboard = ({ updateAuthStatus }) => {
             </button>
           </div>
 
-          <h1>Sistema de Riego Cultivo de Tomate - San Miguel Dueñas</h1>
+          <h1>Sistema de Riego Cultivo de Tomate - Finca La Soledad | San Miguel Dueñas Sacatepéquez</h1>
           
           {/* Selector de Mapas */}
           <div className="map-selector-container">
