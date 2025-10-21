@@ -382,35 +382,136 @@ h1 {
 }
 
 .watering-indicator {
-  margin-top: 20px;
-  background-color: rgba(0, 0, 0, 0.6);
-  padding: 15px 30px;
-  border-radius: 8px;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
   color: white;
+  padding: 40px;
+  border-radius: 20px;
   text-align: center;
-  width: 80%;
-  max-width: 400px;
+  z-index: 1000;
+  box-shadow: 0 15px 40px rgba(76, 175, 80, 0.4);
+  animation: pulse 1.5s infinite;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  min-width: 300px;
 }
 
 .watering-animation {
-  width: 50px;
-  height: 50px;
-  margin: 0 auto 10px;
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
+}
+
+.watering-circle {
+  width: 80px;
+  height: 80px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid white;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(52, 152, 219, 0.7), rgba(46, 204, 113, 0.7));
-  animation: water-drop 2s infinite;
+  animation: spin 1s linear infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
 }
 
-@keyframes water-drop {
-  0% { transform: scale(0.8); opacity: 0.7; }
-  50% { transform: scale(1.2); opacity: 1; }
-  100% { transform: scale(0.8); opacity: 0.7; }
-}
-
-.watering-indicator p {
+.watering-circle i {
+  font-size: 1.5rem;
   color: white;
-  font-size: 1.2em;
+  animation: bounce 1s infinite;
+}
+
+.water-drops {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.drop {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  animation: dropFall 2s infinite;
+}
+
+.drop-1 {
+  top: 10px;
+  left: 20px;
+  animation-delay: 0s;
+}
+
+.drop-2 {
+  top: 15px;
+  left: 40px;
+  animation-delay: 0.3s;
+}
+
+.drop-3 {
+  top: 8px;
+  left: 60px;
+  animation-delay: 0.6s;
+}
+
+.drop-4 {
+  top: 12px;
+  left: 30px;
+  animation-delay: 0.9s;
+}
+
+.drop-5 {
+  top: 18px;
+  left: 50px;
+  animation-delay: 1.2s;
+}
+
+@keyframes dropFall {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(30px) scale(0.8);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(60px) scale(0.5);
+    opacity: 0;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-5px); }
+  60% { transform: translateY(-3px); }
+}
+
+.watering-text {
+  font-size: 1.2rem;
+  font-weight: 600;
   margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: white;
+}
+
+.watering-text i {
+  font-size: 1.1rem;
 }
 
 /* --- AÑADIDO: Estilos para la sección de administración --- */
@@ -562,4 +663,44 @@ h1 {
 
 .fa-tint, .fa {
   margin-right: 8px;
+}
+
+/* Botón de Simulación */
+.simulation-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  border: 2px solid #5a6fd8 !important;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.simulation-button:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+}
+
+.simulation-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%);
+  transition: left 0.5s ease;
+}
+
+.simulation-button:hover::before {
+  left: 100%;
+}
+
+.simulation-button i {
+  animation: waterDrop 2s infinite;
+}
+
+@keyframes waterDrop {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
 }

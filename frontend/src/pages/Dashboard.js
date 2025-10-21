@@ -10,6 +10,7 @@ import MapDesigner from "../components/MapDesigner";
 import MapViewer from "../components/MapViewer";
 import AdminUsersModal from "../components/AdminUsersModal";
 import ParcelImagesModal from "../components/ParcelImagesModal";
+import SimulationModal from "../components/SimulationModal";
 import tomatoImage from '../assets/images/tomato.png';
 import ParcelMap from "../components/ParcelMap";
 
@@ -22,6 +23,7 @@ const Dashboard = ({ updateAuthStatus }) => {
   const [selectedParcelId, setSelectedParcelId] = useState(null);
   const [maps, setMaps] = useState([]);
   const [selectedMapId, setSelectedMapId] = useState(null); // null = "Todas las parcelas"
+  const [sensors, setSensors] = useState([]); // Sensores IoT
   
   const [isWatering, setIsWatering] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,6 +36,7 @@ const Dashboard = ({ updateAuthStatus }) => {
   const [showMapDesigner, setShowMapDesigner] = useState(false);
   const [showMapViewer, setShowMapViewer] = useState(false);
   const [showImagesModal, setShowImagesModal] = useState(false);
+  const [showSimulationModal, setShowSimulationModal] = useState(false);
   
   const detectionIntervalRef = useRef(null);
   const detectionTimeoutRef = useRef(null);
@@ -59,6 +62,46 @@ const Dashboard = ({ updateAuthStatus }) => {
       }
     } catch (error) {
       console.error("Error al cargar mapas:", error);
+    }
+  };
+
+  // Función para cargar sensores del usuario
+  const fetchSensors = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${API_BASE_URL}/sensors`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSensors(data);
+      } else {
+        // Si no hay sensores, crear sensores simulados para las parcelas
+        const simulatedSensors = parcels.map(parcel => ({
+          id: `sensor_${parcel.id}`,
+          parcel_id: parcel.id,
+          sensor_name: `Sensor-${parcel.name}`,
+          connectivity_status: 'stable',
+          signal_strength: 85 + Math.random() * 15,
+          last_reading: new Date().toISOString(),
+          is_active: true
+        }));
+        setSensors(simulatedSensors);
+      }
+    } catch (error) {
+      console.error("Error al cargar sensores:", error);
+      // Crear sensores simulados en caso de error
+      const simulatedSensors = parcels.map(parcel => ({
+        id: `sensor_${parcel.id}`,
+        parcel_id: parcel.id,
+        sensor_name: `Sensor-${parcel.name}`,
+        connectivity_status: 'stable',
+        signal_strength: 85 + Math.random() * 15,
+        last_reading: new Date().toISOString(),
+        is_active: true
+      }));
+      setSensors(simulatedSensors);
     }
   };
 
@@ -185,6 +228,13 @@ const Dashboard = ({ updateAuthStatus }) => {
       setUserRole(parseInt(rol));
     }
   }, []);
+
+  // Cargar sensores cuando cambien las parcelas
+  useEffect(() => {
+    if (parcels.length > 0) {
+      fetchSensors();
+    }
+  }, [parcels]);
 
   // Lógica para cerrar sesión
   const handleLogout = () => {
@@ -360,7 +410,7 @@ const Dashboard = ({ updateAuthStatus }) => {
     return new Date(`${d}T${h}`);
   };
 
-  const triggerScheduledWatering = (parcelName, scheduleId, humidity, horaFin) => {
+  const triggerScheduledWatering = async (parcelName, scheduleId, humidity, horaFin) => {
     const parcel = parcels.find(p => p.name === parcelName);
     if (!parcel) return;
     if (executedSchedulesRef.current.has(scheduleId)) return;
@@ -376,27 +426,59 @@ const Dashboard = ({ updateAuthStatus }) => {
 
     setSelectedParcelId(parcel.id);
     setIsWatering(true);
-    setTimeout(() => {
+    
+    setTimeout(async () => {
       setIsWatering(false);
       const increased = Math.min(100, Math.max(parcel.humidity ?? 0, 70));
+      
+      // Actualizar humedad en la base de datos
+      try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/parcels/${parcel.id}/humidity`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ humidity: increased })
+        });
+
+        if (response.ok) {
+          console.log(`💧 Humedad actualizada en BD para parcela ${parcel.id}: ${increased}%`);
+        } else {
+          console.error('Error al actualizar humedad en BD');
+        }
+      } catch (error) {
+        console.error('Error al actualizar humedad:', error);
+      }
+
+      // Actualizar humedad localmente
       setParcels(curr => curr.map(p => p.id === parcel.id ? { ...p, humidity: increased } : p));
-      setAlertMessage(`Riego programado completado en ${parcel.name}.`);
+      setAllParcels(curr => curr.map(p => p.id === parcel.id ? { ...p, humidity: increased } : p));
+      setAlertMessage(`Riego programado completado en ${parcel.name}. Humedad: ${increased}%`);
       setAlertType("success");
     }, durationSec * 1000);
 
     // Registrar consumo de agua
     try {
-      fetch(`${API_BASE_URL}/agua/uso`, {
+      const token = localStorage.getItem('authToken');
+      await fetch(`${API_BASE_URL}/agua/uso`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           parcelaId: parcel.id,
           parcelaNombre: parcel.name,
           litros,
           fecha: new Date().toISOString()
         })
-      }).catch(() => {});
-    } catch (_) {}
+      });
+      console.log(`💧 Consumo de agua registrado: ${litros}L para ${parcel.name}`);
+    } catch (error) {
+      console.error('Error al registrar consumo de agua:', error);
+    }
   };
 
   useEffect(() => {
@@ -649,6 +731,13 @@ const Dashboard = ({ updateAuthStatus }) => {
               <i className="fa fa-camera"></i> Ver Fotos de {currentParcel?.name || 'Parcela'}
             </button>
 
+            <button
+              className="action-button transparent-button simulation-button"
+              onClick={() => setShowSimulationModal(true)}
+            >
+              <i className="fa fa-tint"></i> Simulación del Sistema
+            </button>
+
           </div>
 
           {userRole === 2 && (
@@ -724,8 +813,22 @@ const Dashboard = ({ updateAuthStatus }) => {
           
           {isWatering && (
             <div className="watering-indicator">
-              <div className="watering-animation"></div>
-              <p>Regando las plantas...</p>
+              <div className="watering-animation">
+                <div className="water-drops">
+                  <div className="drop drop-1"></div>
+                  <div className="drop drop-2"></div>
+                  <div className="drop drop-3"></div>
+                  <div className="drop drop-4"></div>
+                  <div className="drop drop-5"></div>
+                </div>
+                <div className="watering-circle">
+                  <i className="fa fa-tint"></i>
+                </div>
+              </div>
+              <p className="watering-text">
+                <i className="fa fa-spinner fa-spin"></i>
+                Regando {currentParcel?.name || 'las plantas'}...
+              </p>
             </div>
           )}
         </div>
@@ -799,6 +902,14 @@ const Dashboard = ({ updateAuthStatus }) => {
           closeModal={closeAdminModal}
         />
       )}
+
+      {/* Modal de Simulación */}
+      <SimulationModal
+        isOpen={showSimulationModal}
+        onClose={() => setShowSimulationModal(false)}
+        parcels={parcels}
+        sensors={sensors}
+      />
 
     </div>
   );

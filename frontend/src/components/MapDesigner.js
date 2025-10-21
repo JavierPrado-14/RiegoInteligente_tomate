@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './MapDesigner.css';
 
-const MapDesigner = ({ onClose, parcels = [] }) => {
+const MapDesigner = ({ onClose, parcels = [], existingMap = null }) => {
   const [mapParcels, setMapParcels] = useState([]);
   const [selectedParcel, setSelectedParcel] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -10,10 +10,32 @@ const MapDesigner = ({ onClose, parcels = [] }) => {
   const [showParcelForm, setShowParcelForm] = useState(false);
   const [newParcelName, setNewParcelName] = useState('');
   const [newParcelHumidity, setNewParcelHumidity] = useState(50);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [existingMaps, setExistingMaps] = useState([]);
+  const [selectedMapId, setSelectedMapId] = useState(null);
   const mapRef = useRef(null);
+
+  // Cargar mapas existentes
+  const fetchExistingMaps = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch('http://localhost:4000/api/maps', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const maps = await response.json();
+        setExistingMaps(maps);
+      }
+    } catch (error) {
+      console.error('Error al cargar mapas:', error);
+    }
+  };
 
   // Inicializar con parcelas existentes del dashboard
   useEffect(() => {
+    fetchExistingMaps();
+    
     if (parcels && parcels.length > 0) {
       const initialMapParcels = parcels.map((parcel, index) => ({
         id: parcel.id,
@@ -111,6 +133,41 @@ const MapDesigner = ({ onClose, parcels = [] }) => {
     setMapParcels(prev => prev.filter(p => p.id !== parcelId));
   };
 
+  // Cargar mapa existente para editar
+  const loadExistingMap = async (mapId) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`http://localhost:4000/api/maps/${mapId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const mapData = await response.json();
+        setMapName(mapData.map_name);
+        setSelectedMapId(mapId);
+        setIsEditMode(true);
+        
+        // Cargar parcelas del mapa
+        const loadedParcels = mapData.parcels.map((parcel, index) => ({
+          id: parcel.id,
+          name: parcel.name,
+          humidity: parcel.humidity || 50,
+          x: parcel.position_x || (100 + index * 200),
+          y: parcel.position_y || (100 + index * 150),
+          width: parcel.width || 120,
+          height: parcel.height || 80,
+          color: getHumidityColor(parcel.humidity || 50)
+        }));
+        
+        setMapParcels(loadedParcels);
+        alert(`✅ Mapa "${mapData.map_name}" cargado para edición`);
+      }
+    } catch (error) {
+      console.error('Error al cargar el mapa:', error);
+      alert('Error al cargar el mapa: ' + error.message);
+    }
+  };
+
   const saveMap = async () => {
     if (!mapName.trim()) {
       alert('Por favor ingresa un nombre para el mapa');
@@ -128,6 +185,7 @@ const MapDesigner = ({ onClose, parcels = [] }) => {
       const mapData = {
         mapName: mapName,
         parcels: mapParcels.map(p => ({
+          id: p.id, // Incluir ID para identificar parcelas existentes
           name: p.name,
           humidity: p.humidity,
           x: p.x,
@@ -137,29 +195,50 @@ const MapDesigner = ({ onClose, parcels = [] }) => {
         }))
       };
       
-      const response = await fetch('http://localhost:4000/api/maps', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(mapData)
-      });
+      let response;
+      let successMessage;
+      
+      if (isEditMode && selectedMapId) {
+        // Actualizar mapa existente
+        response = await fetch(`http://localhost:4000/api/maps/${selectedMapId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(mapData)
+        });
+        successMessage = `✅ Mapa "${mapName}" actualizado exitosamente!\n\n` +
+                        `📍 ${mapParcels.length} parcelas actualizadas\n` +
+                        `📡 Sensores sincronizados\n\n` +
+                        `Los cambios se reflejarán en tu Dashboard`;
+      } else {
+        // Crear nuevo mapa
+        response = await fetch('http://localhost:4000/api/maps', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(mapData)
+        });
+        successMessage = `✅ Mapa "${mapName}" guardado exitosamente!\n\n` +
+                        `📍 ${mapParcels.length} parcelas creadas\n` +
+                        `📡 ${mapParcels.length} sensores configurados\n\n` +
+                        `Las parcelas ahora aparecerán en tu Dashboard`;
+      }
       
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || 'Error al guardar el mapa');
       }
       
-      const result = await response.json();
-      
-      alert(`✅ Mapa "${mapName}" guardado exitosamente!\n\n` +
-            `📍 ${result.map.parcels.length} parcelas creadas\n` +
-            `📡 ${result.map.parcels.length} sensores configurados\n\n` +
-            `Las parcelas ahora aparecerán en tu Dashboard`);
+      alert(successMessage);
       
       setMapName('');
       setMapParcels([]);
+      setIsEditMode(false);
+      setSelectedMapId(null);
       
     } catch (error) {
       console.error('Error al guardar mapa:', error);
@@ -261,7 +340,7 @@ const MapDesigner = ({ onClose, parcels = [] }) => {
             <i className="fa fa-folder-open"></i> Cargar Mapa
           </button>
           <button className="btn-primary" onClick={saveMap}>
-            <i className="fa fa-save"></i> Guardar Mapa
+            <i className="fa fa-save"></i> {isEditMode ? 'Actualizar Mapa' : 'Guardar Mapa'}
           </button>
           <button className="btn-close" onClick={onClose}>
             <i className="fa fa-times"></i> Cerrar
@@ -272,7 +351,7 @@ const MapDesigner = ({ onClose, parcels = [] }) => {
       <div className="map-designer-content">
         <div className="map-toolbar">
           <div className="toolbar-section">
-            <h4>Nuevo Mapa</h4>
+            <h4>{isEditMode ? 'Editando Mapa' : 'Nuevo Mapa'}</h4>
             <input
               type="text"
               placeholder="Nombre del mapa"
@@ -280,6 +359,45 @@ const MapDesigner = ({ onClose, parcels = [] }) => {
               onChange={(e) => setMapName(e.target.value)}
               className="map-name-input"
             />
+            {isEditMode && (
+              <div className="edit-mode-indicator">
+                <i className="fa fa-edit"></i>
+                <span>Modo Edición</span>
+              </div>
+            )}
+          </div>
+
+          <div className="toolbar-section">
+            <h4>Mapas Existentes</h4>
+            <select 
+              className="map-selector"
+              onChange={(e) => {
+                if (e.target.value) {
+                  loadExistingMap(parseInt(e.target.value));
+                }
+              }}
+              value={selectedMapId || ''}
+            >
+              <option value="">Seleccionar mapa para editar...</option>
+              {existingMaps.map(map => (
+                <option key={map.id} value={map.id}>
+                  {map.map_name}
+                </option>
+              ))}
+            </select>
+            {isEditMode && (
+              <button 
+                className="btn-cancel"
+                onClick={() => {
+                  setIsEditMode(false);
+                  setSelectedMapId(null);
+                  setMapName('');
+                  setMapParcels([]);
+                }}
+              >
+                <i className="fa fa-times"></i> Cancelar Edición
+              </button>
+            )}
           </div>
           
           <div className="toolbar-section">
