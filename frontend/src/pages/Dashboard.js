@@ -32,6 +32,7 @@ const Dashboard = ({ updateAuthStatus }) => {
   const [alertMessage, setAlertMessage] = useState("");
   const [alertType, setAlertType] = useState("");
   const [userRole, setUserRole] = useState(1);
+  const [userName, setUserName] = useState("");
   const [adminModal, setAdminModal] = useState(null);
   const [showMapDesigner, setShowMapDesigner] = useState(false);
   const [showMapViewer, setShowMapViewer] = useState(false);
@@ -227,6 +228,12 @@ const Dashboard = ({ updateAuthStatus }) => {
     if (rol) {
       setUserRole(parseInt(rol));
     }
+
+    // Obtener nombre del usuario
+    const nombre = localStorage.getItem("userName");
+    if (nombre) {
+      setUserName(nombre);
+    }
   }, []);
 
   // Cargar sensores cuando cambien las parcelas
@@ -240,6 +247,8 @@ const Dashboard = ({ updateAuthStatus }) => {
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("userRol");
+    localStorage.removeItem("userName");
+    localStorage.removeItem("userId");
     if (updateAuthStatus) {
       updateAuthStatus(false);
     }
@@ -620,9 +629,20 @@ const Dashboard = ({ updateAuthStatus }) => {
         style={{ backgroundImage: `url(${tomatoImage})` }}
       >
         <div className="content-overlay">
-          <button className="logout-button" onClick={handleLogout}>
-            <i className="fa fa-sign-out"></i> Cerrar Sesión
-          </button>
+          <div className="header-top">
+            {userName && (
+              <div className="user-info">
+                <i className="fa fa-user-circle"></i>
+                <span className="user-name">
+                  {userName}
+                  {userRole === 2 && <span className="admin-badge">Admin</span>}
+                </span>
+              </div>
+            )}
+            <button className="logout-button" onClick={handleLogout}>
+              <i className="fa fa-sign-out"></i> Cerrar Sesión
+            </button>
+          </div>
 
           <h1>Sistema de Riego Cultivo de Tomate - San Miguel Dueñas</h1>
           

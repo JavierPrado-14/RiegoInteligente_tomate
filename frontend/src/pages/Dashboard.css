@@ -99,25 +99,83 @@
 }
 
 /* Botón de cerrar sesión */
-.logout-button {
+/* Header superior con información del usuario */
+.header-top {
   position: absolute;
   top: 20px;
   right: 20px;
-  padding: 10px 15px;
-  background-color: rgba(231, 76, 60, 0.7); /* Rojo con transparencia */
+  left: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.9), rgba(56, 142, 60, 0.9));
+  border-radius: 25px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  animation: slideInLeft 0.5s ease;
+}
+
+.user-info i {
+  font-size: 1.5em;
+  color: white;
+}
+
+.user-name {
+  color: white;
+  font-weight: 600;
+  font-size: 1.1em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-badge {
+  background: linear-gradient(135deg, #ffd700, #ffa500);
+  color: #333;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75em;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+  animation: pulse 2s infinite;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.logout-button {
+  padding: 10px 20px;
+  background-color: rgba(231, 76, 60, 0.9);
   color: white;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 8px;
   cursor: pointer;
   font-weight: bold;
   transition: all 0.3s ease;
-  z-index: 10;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .logout-button:hover {
-  background-color: rgba(231, 76, 60, 0.9);
+  background-color: rgba(192, 57, 43, 1);
   border-color: rgba(255, 255, 255, 0.6);
   transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
 }
 
 h1 {
@@ -653,9 +711,26 @@ h1 {
     width: 90%;
   }
   
-  .logout-button {
+  .header-top {
+    flex-direction: column;
+    gap: 10px;
     top: 10px;
     right: 10px;
+    left: 10px;
+  }
+
+  .user-info {
+    width: 100%;
+    justify-content: center;
+    padding: 8px 15px;
+  }
+
+  .user-name {
+    font-size: 0.95em;
+  }
+
+  .logout-button {
+    width: 100%;
     padding: 8px 12px;
     font-size: 0.9em;
   }

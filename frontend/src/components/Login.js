@@ -39,10 +39,11 @@ const Login = ({ updateAuthStatus }) => {
         if (isLogin) {
           // Proceso de login
           if (data.token) {
-            // Si el inicio de sesión es exitoso, guarda el token, el rol y el userId
+            // Si el inicio de sesión es exitoso, guarda el token, el rol, el userId y el nombre
             localStorage.setItem("authToken", data.token);
             localStorage.setItem("userRol", data.rol);
             localStorage.setItem("userId", data.userId); // Guardar el ID del usuario
+            localStorage.setItem("userName", data.nombre_usuario); // Guardar el nombre del usuario
             
             // Actualizar el estado de autenticación
             updateAuthStatus(true);
