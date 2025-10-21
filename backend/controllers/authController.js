@@ -62,7 +62,7 @@ const loginUser = async (req, res) => {
 
     // Consultar al usuario en la base de datos
     const result = await client.query(
-      "SELECT * FROM AgroIrrigate.Usuarios WHERE nombre_usuario = $1",
+      "SELECT * FROM agroirrigate.usuarios WHERE nombre_usuario = $1",
       [nombre_usuario]
     );
 
@@ -72,6 +72,7 @@ const loginUser = async (req, res) => {
     if (!user) {
       return res.status(400).json({ message: "Usuario no encontrado" });
     }
+
 
     // Verificar la contraseña
     const isMatch = await bcrypt.compare(contrasena, user.contrasena);
@@ -85,11 +86,12 @@ const loginUser = async (req, res) => {
       rol: user.rol 
     }, "secreta", { expiresIn: "1h" });
 
-    // Responder con el token, el rol y el userId en formato JSON
+    // Responder con el token, el rol, el userId y el nombre en formato JSON
     res.json({ 
       token,
       userId: user.id,
-      rol: user.rol 
+      rol: user.rol,
+      nombre_usuario: user.nombre_usuario
     });
 
     client.end();
