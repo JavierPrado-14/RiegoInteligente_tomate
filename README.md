@@ -1,8 +1,8 @@
 # 🌱 Sistema de Riego Inteligente - AgroIrrigate
 
-## Sistema de Gestión de Cultivos de Tomate con Alertas por Correo Electrónico y Sensores IoT
+## Sistema de Gestión de Cultivos de Tomate con Alertas por Correo Electrónico y Sensores IoT - Finca La Soledad
 
-Sistema web completo para la gestión inteligente de cultivos de tomate en Guatemala. Incluye monitoreo en tiempo real de humedad del suelo, alertas automáticas, programación de riego, gestión de parcelas con mapas interactivos, galería de imágenes y análisis de consumo de agua.
+Sistema web completo para la gestión inteligente de cultivos de tomate en San Miguel Dueñas, Sacatepéquez, Guatemala. Incluye monitoreo en tiempo real de humedad del suelo, alertas automáticas, programación de riego, gestión de parcelas con mapas interactivos, galería de imágenes, análisis de consumo de agua y **simulación visual del sistema de riego por goteo**.
 
 ---
 
@@ -29,6 +29,8 @@ Sistema web completo para la gestión inteligente de cultivos de tomate en Guate
 - Gestión de perfiles con correo electrónico y teléfono
 - Protección de rutas y endpoints
 - Panel de administración de usuarios (solo admins)
+- **Visualización del nombre del usuario** en el Dashboard con badge de administrador
+- **Cierre de sesión seguro** con limpieza de datos almacenados
 
 ### **📧 Alertas Automáticas por Correo Electrónico**
 - Monitor automático cada 2 minutos
@@ -47,6 +49,9 @@ Sistema web completo para la gestión inteligente de cultivos de tomate en Guate
 - Visualización de mapas guardados
 - Filtrado de parcelas por mapa en Dashboard
 - Eliminación de mapas con todas sus parcelas asociadas
+- **Edición de mapas existentes** sin duplicar parcelas
+- **Actualización inteligente** de parcelas (crear, editar, eliminar en un solo guardado)
+- **Selector de mapas** para cargar y modificar diseños previos
 
 ### **🌾 Gestión Completa de Parcelas**
 - Crear, editar y eliminar parcelas
@@ -70,10 +75,13 @@ Sistema web completo para la gestión inteligente de cultivos de tomate en Guate
 - Detección automática de humedad
 - Riego manual según nivel de humedad detectado
 - Programación de riego (fecha, hora inicio, hora fin)
+- **Actualización automática de humedad** después de riego programado
+- **Indicador visual animado** durante el proceso de riego
 - Historial de programaciones de riego
 - Filtrado por fechas
 - Cálculo de consumo de agua
 - Estadísticas de uso por parcela
+- **Sincronización en tiempo real** con la base de datos
 
 ### **📸 Galería de Imágenes por Parcela**
 - Subida de imágenes para cada parcela
@@ -83,6 +91,18 @@ Sistema web completo para la gestión inteligente de cultivos de tomate en Guate
 - Eliminación de imágenes
 - Formatos soportados: JPEG, PNG, GIF, WEBP
 - Límite de tamaño: 5MB por imagen
+
+### **🎬 Simulación Visual del Sistema de Riego por Goteo**
+- **Vista de sistema de irrigación** con tanque de agua, tuberías, válvulas y líneas de goteo
+- **Red de sensores IoT** con visualización de conectividad y estado
+- **Animación de flujo de agua** en tiempo real mediante Canvas
+- **Control automático de válvulas** basado en niveles de humedad de parcelas
+- **Simulación de comandos Arduino** para control de hardware
+- **Indicadores visuales** de presión, flujo, temperatura y nivel de agua
+- **Control de velocidad** de simulación (1x, 2x, 5x)
+- **Múltiples vistas** intercambiables (Sistema, Sensores, Flujo)
+- **Integración completa** con datos reales de parcelas y sensores
+- **Modal interactivo** accesible desde el Dashboard
 
 ### **📊 Reportes y Análisis**
 - Consumo de agua por parcela
@@ -266,7 +286,12 @@ RiegoInteligente_tomate/
 │   │   │   ├── AdminParcelModal.js    # Admin de parcelas
 │   │   │   ├── AdminUsersModal.js     # Admin de usuarios
 │   │   │   ├── AdminReportsModal.js   # Reportes y análisis
-│   │   │   └── AdminMapDesignModal.js # Admin de mapas
+│   │   │   ├── AdminMapDesignModal.js # Admin de mapas
+│   │   │   ├── SimulationModal.js     # 🆕 Modal principal de simulación
+│   │   │   ├── IrrigationSystem.js    # 🆕 Vista del sistema de riego
+│   │   │   ├── SensorNetwork.js       # 🆕 Red de sensores IoT
+│   │   │   ├── WaterFlowAnimation.js  # 🆕 Animación de flujo de agua
+│   │   │   └── AdminModals.css        # Estilos compartidos
 │   │   ├── pages/
 │   │   │   └── Dashboard.js      # Dashboard principal
 │   │   ├── App.js                # Componente principal
@@ -523,6 +548,212 @@ El sistema crea automáticamente el esquema y las tablas necesarias al iniciar. 
 - Filtrado por fecha
 - Análisis de patrones
 
+### **8. 🎬 Simulación Visual del Sistema de Riego por Goteo**
+
+#### Acceso a la Simulación
+- Botón "Simulación del Sistema" en el Dashboard principal
+- Modal de pantalla completa con tres vistas intercambiables
+- Control de velocidad de simulación (1x, 2x, 5x)
+- Botones de inicio/pausa de simulación
+- Integración completa con datos reales del sistema
+
+#### Vista 1: Sistema de Irrigación
+**Componentes Visualizados:**
+- **Tanque de Agua Principal**
+  - Indicador de nivel de agua (0-100%)
+  - Barra de progreso visual
+  - Alertas de nivel bajo
+  - Capacidad total mostrada
+
+- **Sistema de Tuberías**
+  - Tubería principal (color azul)
+  - Ramificaciones a cada parcela
+  - Indicadores de flujo activo
+  - Válvulas controladoras
+
+- **Válvulas Solenoides**
+  - Una por cada parcela
+  - Estados: Abierta (verde) / Cerrada (gris)
+  - Control manual on/off
+  - Indicador de tasa de flujo (L/min)
+
+- **Filtro de Agua**
+  - Representación visual
+  - Estado de funcionamiento
+  - Posición en la tubería principal
+
+- **Líneas de Goteo**
+  - Visualización por parcela
+  - Goteo activo animado
+  - Conexión a válvulas
+
+- **Parcelas**
+  - Representación visual con nombre
+  - Nivel de humedad actual (%)
+  - Color según humedad:
+    - Rojo: < 30% (Seco)
+    - Amarillo: 30-60% (Medio)
+    - Verde: > 60% (Húmedo)
+  - Estado de riego en tiempo real
+
+**Funcionalidades:**
+- Control manual de válvulas individuales
+- Visualización de flujo de agua
+- Actualización automática según humedad
+- Alertas visuales de parcelas secas
+
+#### Vista 2: Red de Sensores IoT
+**Información Mostrada:**
+- **Tarjetas de Sensores Individuales**
+  - Nombre del sensor
+  - Parcela asociada
+  - Estado de conectividad (Estable/Media/Baja)
+  - Fuerza de señal (%)
+  - Última lectura con timestamp
+  - Ícono de sensor animado
+
+- **Estadísticas de Red**
+  - Total de sensores activos
+  - Sensores en línea vs offline
+  - Promedio de fuerza de señal
+  - Última actualización
+
+- **Datos Ambientales Simulados**
+  - Temperatura ambiente (°C)
+  - Humedad ambiental (%)
+  - Presión atmosférica (hPa)
+  - Actualización en tiempo real
+
+- **Indicadores de Conectividad**
+  - Verde: Conexión estable (85-100%)
+  - Amarillo: Conexión media (50-85%)
+  - Rojo: Conexión baja (20-50%)
+  - Gris: Sin conexión (<20%)
+
+#### Vista 3: Animación de Flujo de Agua
+**Características:**
+- **Canvas HTML5** con animación fluida
+- **Partículas de agua** animadas
+- **Trayectorias visuales**:
+  - Desde tanque principal
+  - A través de tuberías
+  - Hacia líneas de goteo
+  - Hasta las parcelas
+
+- **Efectos Visuales**:
+  - Partículas azules en movimiento
+  - Velocidad ajustable
+  - Intensidad según tasa de flujo
+  - Goteo realista en parcelas
+
+- **Información en Tiempo Real**:
+  - Presión del sistema (bar)
+  - Flujo total (L/min)
+  - Válvulas activas
+  - Timestamp de actualización
+
+#### Control Automático Inteligente
+**Lógica Implementada:**
+```javascript
+// Apertura automática de válvulas
+Si humedad_parcela < 40%:
+  - Abrir válvula
+  - Iniciar flujo de agua (2-5 L/min)
+  - Mostrar indicador visual
+  - Registrar evento
+
+// Cierre automático de válvulas
+Si humedad_parcela > 70%:
+  - Cerrar válvula
+  - Detener flujo
+  - Actualizar estado visual
+  - Registrar finalización
+```
+
+**Características del Control:**
+- Verificación cada 2 segundos
+- Actualización visual inmediata
+- Sincronización con base de datos
+- Prevención de sobre-riego
+- Simulación de comandos Arduino
+
+#### Simulación de Hardware IoT
+**Comandos Simulados al Arduino/Sistema:**
+```javascript
+// Abrir válvula
+{
+  command: "OPEN_VALVE",
+  parcel_id: 5,
+  flow_rate: 3.5,
+  timestamp: "2025-10-21T10:30:00"
+}
+
+// Cerrar válvula
+{
+  command: "CLOSE_VALVE",
+  parcel_id: 5,
+  timestamp: "2025-10-21T10:45:00"
+}
+
+// Activar bomba
+{
+  command: "START_PUMP",
+  power: 80,
+  timestamp: "2025-10-21T10:30:00"
+}
+```
+
+#### Indicadores del Sistema
+**Panel de Estado:**
+- **Estado General**:
+  - Idle: Sistema en espera
+  - Watering: Riego activo
+  - Alert: Alerta de nivel bajo de agua
+  - Maintenance: Mantenimiento requerido
+
+- **Métricas en Tiempo Real**:
+  - Nivel de agua en tanque (%)
+  - Presión del sistema (bar)
+  - Flujo total (L/min)
+  - Número de válvulas activas
+  - Temperatura del agua (°C)
+
+- **Control de Simulación**:
+  - Botón Play/Pause
+  - Selector de velocidad
+  - Botón de reset
+  - Selector de vista
+
+#### Integración con Datos Reales
+**Fuentes de Datos:**
+- Parcelas desde el Dashboard
+- Sensores desde la API
+- Humedad en tiempo real
+- Estados de riego programado
+- Historial de consumo
+
+**Sincronización:**
+- Actualización cada 5 segundos
+- Fetch de datos del backend
+- Actualización de estados visuales
+- Registro de eventos en consola
+
+#### Tecnologías Utilizadas
+- **React Hooks** (useState, useEffect)
+- **HTML5 Canvas** para animaciones
+- **CSS3** con animaciones y transiciones
+- **JavaScript** para lógica de control
+- **Fetch API** para integración backend
+- **LocalStorage** para persistencia
+
+#### Beneficios de la Simulación
+✅ **Educativo**: Visualiza cómo funciona el sistema completo  
+✅ **Diagnóstico**: Identifica problemas visualmente  
+✅ **Planificación**: Prueba escenarios antes de implementar  
+✅ **Monitoreo**: Supervisa el sistema en tiempo real  
+✅ **Demostración**: Presenta el sistema a stakeholders  
+✅ **Capacitación**: Entrena a usuarios nuevos  
+
 ---
 
 ## 📡 API Endpoints
@@ -573,6 +804,7 @@ Headers: { "Authorization": "Bearer <token>" }
 |--------|----------|-------------|---------------|
 | GET | `/` | Listar mapas del usuario | Requerida (JWT) |
 | POST | `/` | Guardar nuevo mapa con parcelas | Requerida (JWT) |
+| PUT | `/:id` | **🆕 Actualizar mapa existente** | Requerida (JWT) |
 | GET | `/:id` | Obtener mapa específico con parcelas | Requerida (JWT) |
 | DELETE | `/:id` | Eliminar mapa y parcelas asociadas | Requerida (JWT) |
 
@@ -593,6 +825,36 @@ Headers: { "Authorization": "Bearer <token>" }
     }
   ]
 }
+```
+
+**🆕 Ejemplo de Actualizar Mapa:**
+```json
+PUT /api/maps/5
+Headers: { "Authorization": "Bearer <token>" }
+{
+  "mapName": "Cuadra 1 Actualizada",
+  "parcels": [
+    {
+      "id": 10,           // ID existente: actualiza parcela
+      "name": "Parcela A",
+      "x": 120,
+      "y": 60,
+      "width": 150,
+      "height": 100,
+      "humidity": 50
+    },
+    {
+      "id": 1729512345678,  // ID temporal: crea nueva parcela
+      "name": "Parcela B Nueva",
+      "x": 300,
+      "y": 60,
+      "width": 150,
+      "height": 100,
+      "humidity": 45
+    }
+  ]
+}
+// Nota: Las parcelas que existían pero no están en el array serán eliminadas
 ```
 
 ### **Imágenes** (`/api/images`)
@@ -1040,9 +1302,13 @@ Dashboard → Seleccionar Parcela
 | | Drag & Drop | ✅ Completo |
 | | Múltiples mapas | ✅ Completo |
 | | Eliminación en cascada | ✅ Completo |
+| | **🆕 Edición de mapas** | ✅ Completo |
+| | **🆕 Actualización inteligente** | ✅ Completo |
 | **Riego** | Detección de humedad | ✅ Completo |
 | | Riego manual | ✅ Completo |
 | | Programación de riego | ✅ Completo |
+| | **🆕 Actualización automática post-riego** | ✅ Completo |
+| | **🆕 Indicador visual animado** | ✅ Completo |
 | | Historial de riego | ✅ Completo |
 | **Alertas** | Monitor automático (2 min) | ✅ Completo |
 | | Correos HTML | ✅ Completo |
@@ -1053,6 +1319,14 @@ Dashboard → Seleccionar Parcela
 | | Filtros por fecha | ✅ Completo |
 | **Administración** | Gestión de usuarios | ✅ Completo |
 | | Reportes avanzados | ✅ Completo |
+| | **🆕 Visualización de nombre de usuario** | ✅ Completo |
+| | **🆕 Badge de administrador** | ✅ Completo |
+| **🎬 Simulación** | **Vista de sistema de riego** | ✅ Completo |
+| | **Red de sensores IoT visual** | ✅ Completo |
+| | **Animación de flujo de agua** | ✅ Completo |
+| | **Control automático de válvulas** | ✅ Completo |
+| | **Múltiples vistas intercambiables** | ✅ Completo |
+| | **Integración con datos reales** | ✅ Completo |
 
 ---
 
@@ -1298,13 +1572,21 @@ El Arduino puede enviar datos al backend mediante HTTP POST:
 - ✅ Registro y autenticación de usuarios con JWT
 - ✅ Gestión completa de parcelas (CRUD)
 - ✅ Diseñador de mapas interactivo con drag & drop
+- ✅ **🆕 Edición y actualización de mapas existentes**
+- ✅ **🆕 Actualización inteligente de parcelas en mapas**
 - ✅ Sensores IoT en tiempo real
 - ✅ Sistema de alertas automáticas por correo electrónico
+- ✅ **🆕 Configuración de Gmail integrada (kennethprado140494@gmail.com)**
 - ✅ Galería de imágenes por parcela
 - ✅ Programación de riego con validaciones
+- ✅ **🆕 Actualización automática de humedad post-riego programado**
+- ✅ **🆕 Indicador visual animado durante el riego**
 - ✅ Detección y actualización de humedad
 - ✅ Registro y análisis de consumo de agua
 - ✅ Panel de administración de usuarios
+- ✅ **🆕 Visualización del nombre del usuario en Dashboard**
+- ✅ **🆕 Badge dorado de administrador con animaciones**
+- ✅ **🆕 Botón de cierre (X) en modales administrativos**
 - ✅ Reportes y gráficos de consumo
 - ✅ Sistema multi-usuario con privacidad
 - ✅ Filtrado de parcelas por mapa
@@ -1313,6 +1595,12 @@ El Arduino puede enviar datos al backend mediante HTTP POST:
 - ✅ Manejo de zona horaria (Guatemala GMT-6)
 - ✅ Integración con Arduino Uno R4 WiFi (código de ejemplo)
 - ✅ Documentación completa de hardware IoT
+- ✅ **🎬 Simulación visual del sistema de riego por goteo**
+- ✅ **🎬 Vista interactiva del sistema de irrigación**
+- ✅ **🎬 Red de sensores IoT con visualización 3D**
+- ✅ **🎬 Animación de flujo de agua en tiempo real**
+- ✅ **🎬 Control automático de válvulas basado en humedad**
+- ✅ **🎬 Simulación de comandos Arduino/IoT**
 
 ### **Tecnologías Principales:**
 - **Backend:** Node.js, Express.js, PostgreSQL, JWT, nodemailer
@@ -1324,18 +1612,22 @@ El Arduino puede enviar datos al backend mediante HTTP POST:
 
 ## 📊 Métricas del Proyecto
 
-- **Total de Endpoints API:** 25+
-- **Componentes React:** 15+
+- **Total de Endpoints API:** 27+ (🆕 +2 endpoints de mapas)
+- **Componentes React:** 19+ (🆕 +4 componentes de simulación)
 - **Tablas en Base de Datos:** 10
 - **Controllers:** 10
 - **Servicios:** 2 (Email, AlertMonitor)
 - **Middleware:** 1 (Autenticación JWT)
 - **Rutas Protegidas:** 90%
 - **Integración IoT:** Arduino R4 WiFi con sensores
+- **🆕 Componentes de Simulación:** 4 (Modal, Sistema, Sensores, Animación)
+- **🆕 Archivos CSS:** 8+ (incluyendo estilos de simulación)
+- **🆕 Funcionalidades de Edición:** Mapas actualizables sin duplicación
 
 ---
 
-**🌱 Desarrollado para el cultivo inteligente de tomate en Guatemala 🇬🇹**
+**🌱 Desarrollado para el cultivo inteligente de tomate - Finca La Soledad**  
+**📍 San Miguel Dueñas, Sacatepéquez, Guatemala 🇬🇹**
 
 ---
 
@@ -1352,4 +1644,5 @@ Seminario de Tecnologías de Información
 
 ---
 
-*Última actualización: Octubre 2025*
+*Última actualización: 21 de Octubre de 2025*  
+*Versión: 2.0 - Con Simulación Visual del Sistema de Riego*
